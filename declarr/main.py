@@ -190,6 +190,8 @@ class Apply:
             self.recursive_apply(obj[key], f"{resource}/{key}")
 
     def apply(self):
+        self.get("/ping")
+
         self.cfg = add_defaults(
             self.cfg,
             {
