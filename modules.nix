@@ -2,6 +2,8 @@
   config,
   lib,
   pkgs,
+  self,
+  system,
   ...
 }: let
   inherit (lib) mkOption types mkEnableOption;
@@ -49,8 +51,9 @@ in {
             pkgs.writeText
             "config.yaml"
             (builtins.toJSON cfg.settings);
+          prog = pkgs.getExe self.packages.${system}.declarr;
         in
-          pkgs.writeScript "declarr-init" "declarr ${configFile}";
+          pkgs.writeScript "declarr-init" "${prog} ${configFile}";
       };
     };
   };

@@ -281,17 +281,27 @@ def resolve_paths(obj, paths):
 
     return obj
 
-if __name__ == "__main__":
+
+def main():
+    if (len(sys.argv) < 2):
+        print("Usage declarr ./path/to/config.yaml")
+        exit(1)
+
     cfg_file = sys.argv[1]
+
     cfgs = yaml.safe_load(open(cfg_file, "r"))
 
     cfgs = resolve_paths(cfgs, cfgs["declarr"].get("globalResolvePaths", []))
 
     for key, cfg in cfgs.items():
         print(f"Configuring {key}:")
-        
+
         cfg = resolve_paths(cfg, cfg["declarr"].get("resolvePaths", []))
 
         Apply(cfg).apply()
 
     print("Finished to apply configurations")
+
+
+if __name__ == "__main__":
+    main()

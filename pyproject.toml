@@ -6,7 +6,9 @@ build-backend = "setuptools.build_meta"
 name = "qs"
 version = "1.0"
 dependencies = []
-scripts.declarr = "declarr.main:main"
+
+[project.scripts]
+declarr = "declarr.main:main"
 
 [tool.setuptools.package-data]
 "declarr.data" = ["*.json"]
