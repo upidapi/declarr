@@ -2,8 +2,7 @@
   config,
   lib,
   pkgs,
-  self,
-  system,
+  self',
   ...
 }: let
   inherit (lib) mkOption types mkEnableOption;
@@ -11,7 +10,7 @@
   cfg = config.services.declarr;
 in {
   options.services.declarr = {
-    enable = mkEnableOption "buildarr";
+    enable = mkEnableOption "declarr";
 
     user = lib.mkOption {
       type = lib.types.str;
@@ -32,7 +31,18 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    systemd.services.buildarr = {
+    users.users = lib.mkIf (cfg.user == "declarr") {
+      declarr = {
+        isSystemUser = true;
+        group = cfg.group;
+      };
+    };
+
+    users.groups = lib.mkIf (cfg.group == "declarr") {
+      declarr = {};
+    };
+
+    systemd.services.declarr = {
       after = [
         "network.target"
 
@@ -50,10 +60,13 @@ in {
           configFile =
             pkgs.writeText
             "config.yaml"
-            (builtins.toJSON cfg.settings);
-          prog = pkgs.getExe self.packages.${system}.declarr;
+            (builtins.toJSON cfg.config);
+
+          pkg = pkgs.callPackage ./declarr.nix {};
         in
-          pkgs.writeScript "declarr-init" "${prog} ${configFile}";
+          pkgs.writeShellScript
+          "declarr-init"
+          "${lib.getExe pkg} ${configFile}";
       };
     };
   };

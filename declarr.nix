@@ -1,8 +1,8 @@
 {
   python3,
 }:
-python3.pkgs.buildPythonApplication rec {
-  pname = "buildarr";
+python3.pkgs.buildPythonApplication {
+  pname = "declarr";
   version = "0.8.0b1";
   pyproject = true;
 
@@ -20,14 +20,10 @@ python3.pkgs.buildPythonApplication rec {
   ];
 
   # pythonImportsCheck = [
-  #   "buildarr"
   # ];
 
   meta = {
     description = "Declarative configuration for the *arr stack";
-    # homepage = "https://github.com/buildarr/buildarr";
-    # license = lib.licenses.gpl3Only;
-    # maintainers = with lib.maintainers; [hierocles];
     mainProgram = "declarr";
   };
 }

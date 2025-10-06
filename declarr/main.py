@@ -22,7 +22,8 @@ def access_overload(l: dict, key: AccessOverload):
 def to_dict(l: list, key: AccessOverload):
     res = {}
     for x in l:
-        res[access_overload(x, key)] = l
+        res[access_overload(x, key)] = x
+    return res
 
 
 def unique(l: list):
@@ -30,23 +31,26 @@ def unique(l: list):
 
 
 def map_values(obj: dict, f):
-    return {k: f(v) for k, v in obj.items()}
+    return {k: f(k, v) for k, v in obj.items()}
 
 
 def read_file(path: str):
     with open(path) as f:
-        return f
+        return f.read()
 
 
 def deep_merge(*args):
-    source, dest, rem = args
+    source, dest, *rem = args
     res = dict(dest)
     for k, v in source.items():
         if k in res and type(source[k]) is type(dest[k]) is dict:
             res[k] = deep_merge(source[k], dest[k])
         else:
             res[k] = source[k]
-    return deep_merge(res, *rem)
+
+    if rem:
+        return deep_merge(res, *rem)
+    return res
 
 
 def add_defaults(obj, ref):
@@ -59,9 +63,15 @@ def add_defaults(obj, ref):
             else:
                 add_defaults(obj[key], ref[key])
 
-    if isinstance(obj, list):
+    if isinstance(obj, list) and ref:
         for i in range(len(obj)):
             add_defaults(obj[i], ref[0])
+
+    return obj
+
+
+def pp(obj):
+    print(json.dumps(obj, indent=2))
 
 
 class Apply:
@@ -76,7 +86,8 @@ class Apply:
             "radarr": "/api/v3",
             "prowlarr": "/api/v1",
         }[self.type]
-        self.url = "/".join("", self.meta_cfg["url"].strip("/"), api_path)
+        self.base_url = self.meta_cfg["url"].strip("/")
+        self.url = self.base_url + api_path
 
         adapter = requests.adapters.HTTPAdapter(
             max_retries=Retry(total=10, backoff_factor=0.1)
@@ -86,53 +97,61 @@ class Apply:
         self.r.mount("http://", adapter)
         self.r.mount("https://", adapter)
 
+        api_key = self.cfg["config"]["host"]["apiKey"]
+        # print(api_key)
+        self.r.headers.update({"X-Api-Key": api_key})
+
         self.tag_map = {}
 
     def _base_req(self, name, f, path: str, body):
         body = {} if body is None else body
-        print(f"{name} {path} {json.dumps(body, indent=2)}")
+        print(f"{name} {self.url}{path}")
+        # print(f"{name} {self.url}{path} {json.dumps(body, indent=2)}")
         res = f(self.url + path, json=body)
+        # print(res.request.json())
+
         if res.status_code < 300:
-            return res
+            return res.json()
+
+        # res.raise_for_status()
 
         raise Exception(
-            f"{name} {path}"
-            f"{json.dumps(body, indent=2)}"
-            f"{json.dumps(res.json(), indent=2)}: {res.status_code}"
+            f"{name} {self.url}{path} "
+            f"{json.dumps(body, indent=2)} "
+            f"{json.dumps(res.json(), indent=2) if res.text else '""'}"
+            f": {res.status_code}"
         )
 
     def get(self, path: str, body=None):
-        return self._base_req("get ", self.r.get, path, body).json()
+        return self._base_req("get ", self.r.get, path, body)
 
     def post(self, path: str, body=None):
-        return self._base_req("post", self.r.post, path, body).json()
+        return self._base_req("post", self.r.post, path, body)
 
     def delete(self, path: str, body=None):
-        return self._base_req("del ", self.r.delete, path, body).json()
+        return self._base_req("del ", self.r.delete, path, body)
 
     def put(self, path: str, body=None):
-        return self._base_req("put ", self.r.put, path, body).json()
+        return self._base_req("put ", self.r.put, path, body)
 
     def create_tags(self):
-        tags = [
-            *self.cfg["tag"],
-            *self.cfg["indexer"].get("tags", []),
-            *self.cfg["indexerProxy"].get("tags", []),
-            *self.cfg["downloadClient"].get("tags", []),
-            *self.cfg["applications"].get("tags", []),
-        ]
-        for tag in tags:
-            self.put("/tag", {"label": tag})
+        tags = [*self.cfg["tag"]]
+        for x in ["indexer", "indexerProxy", "downloadClient", "applications"]:
+            for y in self.cfg[x].values():
+                tags += y.get("tags", [])
 
-        self.tag_map = {
-            k: v["id"] for k, v in to_dict(self.get("/tags"), "label").items()
-        }
+        existing = [v["label"] for v in self.get("/tag")]
+        for tag in [tag.lower() for tag in unique(tags)]:
+            if tag not in existing:
+                self.post("/tag", {"label": tag})
+
+        self.tag_map = {v["label"]: v["id"] for v in self.get("/tag")}
 
     def create_rootfolders(
         self,
     ):
-        cfg = {v: {"path": v} for v in self.cfg["rootFolders"]}
-        path = "/rootFolders"
+        cfg = {v: {"path": v} for v in self.cfg["rootFolder"]}
+        path = "/rootFolder"
 
         existing = to_dict(self.get(path), "path")
         for name, data in existing.items():
@@ -143,19 +162,51 @@ class Apply:
             if name not in existing.keys():
                 self.post(path, data)
 
-    def mk_arr_contract(self, obj):
-        return {
-            "enable": True,
-            "configContract": f"{obj.implementation}Settings",
-            "fields": [
-                {"key": k, "value": v} for k, v in obj.get("fields", {}).items()
-            ],
-            "tags": [self.tag_map[t] for t in obj.get("tags", [])],
-            **obj,
-        }
-
-    def apply_things(self, cfg: dict, path: str):
+    def apply_contracts(
+        self,
+        path: str,
+        cfg: dict,
+        defaults: Callable[[str, dict], dict],
+    ):
         existing = to_dict(self.get(path), "name")
+        # pp(existing)
+        existing = map_values(
+            existing,
+            lambda _, val: {
+                **val,
+                "fields": {v["name"]: v.get("value", None) for v in val["fields"]},
+            },
+        )
+
+        cfg = map_values(
+            cfg,
+            lambda k, v: deep_merge(v, existing.get(k, {})),
+        )
+        # pp(cfg)
+        cfg = map_values(
+            cfg,
+            lambda name, obj: {
+                "enable": True,
+                "name": name,
+                "configContract": f"{obj['implementation']}Settings",
+                **obj,
+            },
+        )
+        cfg = map_values(cfg, defaults)
+        cfg = map_values(
+            cfg,
+            lambda name, obj: {
+                **obj,
+                "tags": [
+                    self.tag_map[t.lower()] if isinstance(t, str) else t
+                    for t in obj.get("tags", [])
+                ],
+                "fields": [
+                    {"name": k, "value": v} for k, v in obj.get("fields", {}).items()
+                ],
+            },
+        )
+
         for name, data in existing.items():
             if name not in cfg.keys():
                 self.delete(f"{path}/{data['id']}")
@@ -167,30 +218,35 @@ class Apply:
                 self.post(path, data)
 
     def recursive_apply(self, obj, resource=""):
-        if not isinstance(obj, dict):
+        # print(resource)
+
+        if isinstance(obj, list):
             for body in obj:
                 self.post(resource, body)
 
             return
 
         has_primative_val = any(
-            isinstance(
+            not isinstance(
                 obj[key],
                 (dict, list),
             )
             for key in obj
         )
-        if not has_primative_val or "__req" in obj:
-            # print("edit  ", resource)
+        if has_primative_val or "__req" in obj:
             obj.pop("__req", None)
-            self.put(resource, obj)
+            self.put(
+                resource,
+                deep_merge(obj, self.get(resource)),
+            )
             return
 
         for key in obj:
             self.recursive_apply(obj[key], f"{resource}/{key}")
 
     def apply(self):
-        self.get("/ping")
+        # self.get("/ping")
+        self.r.get(self.base_url + "/ping").raise_for_status()
 
         self.cfg = add_defaults(
             self.cfg,
@@ -200,90 +256,93 @@ class Apply:
                 "indexerProxy": {},
                 "downloadClient": {},
                 "applications": {},
-                "rootFolders": [],
+                "rootFolder": [],
             },
         )
 
         self.create_tags()
         del self.cfg["tag"]
 
-        self.apply_things(
-            self.mk_arr_contract(
-                {
-                    "categories": [],
-                    "priority": 25,
-                    **self.cfg["downloadClient"],
-                }
-            ),
+        # pp(self.tag_map)
+
+        self.apply_contracts(
             "/downloadClient",
+            self.cfg["downloadClient"],
+            lambda k, v: {
+                "categories": [],
+                "priority": 25,
+                **v,
+            },
         )
         del self.cfg["downloadClient"]
 
-        self.apply_things(
-            self.mk_arr_contract(
-                {
+        if self.type in ("prowlarr",):
+            self.apply_contracts(
+                "/indexer",
+                self.cfg["indexer"],
+                lambda k, v: {
                     "appProfileId": 1,
                     "priority": 25,
-                    **self.cfg["indexer"],
+                    **v,
                 },
-            ),
-            "/indexer",
-        )
-        del self.cfg["indexer"]
+            )
+            del self.cfg["indexer"]
 
-        if self.type in ("prowlarr",):
-            self.apply_things(
-                self.mk_arr_contract(
-                    {
-                        "appProfileId": 1,
-                        **self.cfg["applications"],
-                    }
-                ),
+            self.apply_contracts(
                 "/applications",
+                self.cfg["applications"],
+                lambda k, v: {
+                    "appProfileId": 1,
+                    **v,
+                },
             )
             del self.cfg["applications"]
 
-            self.apply_things(
-                self.mk_arr_contract(
-                    {
-                        "implementation": self.cfg["indexerProxy"]["name"],
-                        **self.cfg["indexerProxy"],
-                    }
-                ),
+            self.apply_contracts(
                 "/indexerProxy",
+                self.cfg["indexerProxy"],
+                lambda k, v: {
+                    "implementation": v["name"],
+                    **v,
+                },
             )
             del self.cfg["indexerProxy"]
 
         if self.type in ("sonarr", "radarr"):
-            self.create_rootFolders()
-            del self.cfg["rootFolders"]
+            self.create_rootfolders()
+            del self.cfg["rootFolder"]
 
             qmap = to_dict(
-                read_file(f"./data/quality-{self.type}.json"),
+                self.get("/qualityDefinition"),
                 "title",
             )
+
             self.cfg["qualityDefinition"] = {
-                x["id"]: deep_merge(x, qmap[name])
+                qmap[name]["id"]: deep_merge(x, qmap[name])
                 for name, x in self.cfg["qualityDefinition"].items()
             }
 
+        # pp(self.cfg)
         self.recursive_apply(self.cfg)
 
 
 def resolve_paths(obj, paths):
+    # print(paths)
     def func(_, data, field):
+        # print(field)
         file_path = data[field]
 
         return read_file(file_path).strip()
 
     for path in paths:
+        # print([x.value for x in  jsonpath.parse(path).find(obj)])
         jsonpath.parse(path).update(obj, func)
 
     return obj
 
 
 def main():
-    if (len(sys.argv) < 2):
+    if len(sys.argv) < 2:
         print("Usage declarr ./path/to/config.yaml")
         exit(1)
 
@@ -291,10 +350,17 @@ def main():
 
     cfgs = yaml.safe_load(open(cfg_file, "r"))
 
-    cfgs = resolve_paths(cfgs, cfgs["declarr"].get("globalResolvePaths", []))
+    cfgs = add_defaults(
+        cfgs,
+        {"declarr": {"globalResolvePaths": []}},
+    )
+
+    cfgs = resolve_paths(cfgs, cfgs["declarr"]["globalResolvePaths"])
+    del cfgs["declarr"]
 
     for key, cfg in cfgs.items():
         print(f"Configuring {key}:")
+        cfg = add_defaults(cfg, {"declarr": {"resolvePaths": []}})
 
         cfg = resolve_paths(cfg, cfg["declarr"].get("resolvePaths", []))
 

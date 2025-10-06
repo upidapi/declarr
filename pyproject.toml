@@ -10,5 +10,8 @@ dependencies = []
 [project.scripts]
 declarr = "declarr.main:main"
 
+[tool.setuptools]
+packages = ["declarr"]
+
 [tool.setuptools.package-data]
 "declarr.data" = ["*.json"]
