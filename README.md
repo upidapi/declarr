@@ -11,6 +11,9 @@ SONARR__AUTH__APIKEY=your-api-key
 ```
 
 ## notes
+Make sure that the sub services like qbittorrent is up and running before
+declarr starts. Since the api request usually errors if that is the case.
+
 if you set, __req in a dict, then that will be counted as a request boundary
 
 the following request have been renamed for readability

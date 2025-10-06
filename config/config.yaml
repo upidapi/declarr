@@ -83,11 +83,6 @@ prowlarr:
       fields:
         definitionFile: thepiratebay
       implementation: Cardigann
-    TheRARBG:
-      fields:
-        definitionFile: therarbg
-        sort: 0
-      implementation: Cardigann
     YTS:
       fields:
         definitionFile: yts
