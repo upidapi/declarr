@@ -34,6 +34,11 @@ def map_values(obj: dict, f):
     return {k: f(k, v) for k, v in obj.items()}
 
 
+def trace(obj):
+    pp(obj)
+    return obj
+
+
 def read_file(path: str):
     with open(path) as f:
         return f.read()
@@ -102,11 +107,12 @@ class Apply:
         self.r.headers.update({"X-Api-Key": api_key})
 
         self.tag_map = {}
+        self.profile_map = {}
 
     def _base_req(self, name, f, path: str, body):
         body = {} if body is None else body
         print(f"{name} {self.url}{path}")
-        # print(f"{name} {self.url}{path} {json.dumps(body, indent=2)}")
+        # print(f"{name} {self.url}{path} {pp(body)}")
         res = f(self.url + path, json=body)
         # print(res.request.json())
 
@@ -147,9 +153,49 @@ class Apply:
 
         self.tag_map = {v["label"]: v["id"] for v in self.get("/tag")}
 
-    def create_rootfolders(
-        self,
-    ):
+    # (sync profiles)
+    def create_app_profiles(self):
+        profiles = self.cfg["appProfile"]
+        # print(profiles)
+
+        existing = to_dict(self.get("/appprofile"), "name")
+        for name, profile in existing.items():
+            if name not in profiles:
+                try:
+                    self.delete(f"/appprofile/{profile['id']}")
+                except Exception:
+                    pass  # cant delete, its in use
+
+        for name, profile in profiles.items():
+            if name in existing:
+                self.put(
+                    f"/appprofile/{existing[name]['id']}",
+                    {
+                        **existing[name],
+                        "name": name,
+                        **profile,
+                    },
+                )
+            else:
+                self.post(
+                    "/appprofile",
+                    {
+                        "enableRss": True,
+                        "enableAutomaticSearch": True,
+                        "enableInteractiveSearch": True,
+                        "minimumSeeders": 1,
+                        "name": name,
+                        **profile,
+                    },
+                )
+
+        self.profile_map = {
+            v["name"]: v["id"]  #
+            for v in self.get("/appprofile")  #
+            if v["name"] in profiles
+        }
+
+    def create_rootfolders(self):
         cfg = {v: {"path": v} for v in self.cfg["rootFolder"]}
         path = "/rootFolder"
 
@@ -252,6 +298,7 @@ class Apply:
             self.cfg,
             {
                 "tag": [],
+                "appProfile": {},
                 "indexer": {},
                 "indexerProxy": {},
                 "downloadClient": {},
@@ -276,23 +323,42 @@ class Apply:
         )
         del self.cfg["downloadClient"]
 
+        # print(self.profile_map)
         if self.type in ("prowlarr",):
+            self.create_app_profiles()
+            pp(self.profile_map)
+
+            def gen_profile_id(v):
+                avalible_ids = self.profile_map.values()
+
+                if "appProfileId" not in v:
+                    # assign new ones to a profile that should exist
+                    return min(avalible_ids)
+
+                id = v["appProfileId"]
+                if isinstance(id, int):
+                    # reassign new ones to a profile that should exist
+                    return id if id in avalible_ids else min(avalible_ids)
+
+                return self.profile_map[id]
+
             self.apply_contracts(
                 "/indexer",
                 self.cfg["indexer"],
                 lambda k, v: {
-                    "appProfileId": 1,
                     "priority": 25,
                     **v,
+                    "appProfileId": trace(gen_profile_id(v)),
                 },
             )
+            del self.cfg["appProfile"]
             del self.cfg["indexer"]
 
             self.apply_contracts(
                 "/applications",
                 self.cfg["applications"],
                 lambda k, v: {
-                    "appProfileId": 1,
+                    # "appProfileId": 1,
                     **v,
                 },
             )
