@@ -21,6 +21,10 @@ the following request have been renamed for readability
 - /rootFolder -> /rootfolder
 - /downloadClient -> /downloadclient
 
+customFormat and qualityProfile is compiled to api requests using profilarrs
+logic, idk how that works, look at https://github.com/Dictionarry-Hub/Database
+for examples. 
+
 You can only set /indexer for prowlarr. This is to avoid declarr from editing 
 and deleting the indexers that prowlar creates. I can add a switch if anyone
 really wants it.

@@ -55,6 +55,7 @@ in {
       serviceConfig = {
         User = cfg.user;
         Group = cfg.group;
+        StateDirectory = "declarr";
         Restart = "on-failure";
         ExecStart = let
           configFile =

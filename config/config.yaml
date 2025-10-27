@@ -6,6 +6,9 @@ declarr:
     - $.*.applications.*.fields.apiKey
     - $.*.indexer.*.fields.password
     - $.*.downloadClient.*.fields.password
+  # if empty then no defaults for formats and profiles
+  formatDbRepo: "https://github.com/Dictionarry-Hub/Database"
+
 prowlarr:
   applications:
     Radarr:
@@ -26,9 +29,9 @@ prowlarr:
       authenticationRequired: enabled
       backupInterval: 7
       backupRetention: 28
-      bindAddress: '*'
+      bindAddress: "*"
       branch: main
-      consoleLogLevel: ''
+      consoleLogLevel: ""
       instanceName: Prowlarr
       logLevel: debug
       logSizeLimit: 1
@@ -36,18 +39,18 @@ prowlarr:
       passwordConfirmation: /run/secrets/prowlarr/password_declarr
       port: 9696
       proxyEnabled: false
-      sslCertPassword: ''
-      sslCertPath: ''
-      updateScriptPath: ''
-      urlBase: ''
+      sslCertPassword: ""
+      sslCertPath: ""
+      updateScriptPath: ""
+      urlBase: ""
       username: admin
     ui:
       firstDayOfWeek: 1
       theme: dark
-      timeFormat: 'HH:mm'
+      timeFormat: "HH:mm"
   declarr:
     type: prowlarr
-    url: 'http://localhost:9696'
+    url: "http://localhost:9696"
   downloadClient:
     qBittorrent:
       fields:
@@ -70,7 +73,7 @@ prowlarr:
         - FlareSolverr
     AnimeTosho:
       fields:
-        baseUrl: 'https://feed.animetosho.org'
+        baseUrl: "https://feed.animetosho.org"
       implementation: Torznab
     LimeTorrents:
       fields:
@@ -90,7 +93,7 @@ prowlarr:
   indexerProxy:
     FlareSolverr:
       fields:
-        host: 'http://localhost:8191/'
+        host: "http://localhost:8191/"
         requestTimeout: 60
       tags:
         - FlareSolverr
@@ -103,9 +106,9 @@ radarr:
       authenticationRequired: enabled
       backupInterval: 7
       backupRetention: 28
-      bindAddress: '*'
+      bindAddress: "*"
       branch: main
-      consoleLogLevel: ''
+      consoleLogLevel: ""
       instanceName: Radarr
       logLevel: debug
       logSizeLimit: 1
@@ -113,15 +116,15 @@ radarr:
       passwordConfirmation: /run/secrets/radarr/password_declarr
       port: 7878
       proxyEnabled: false
-      sslCertPassword: ''
-      sslCertPath: ''
-      updateScriptPath: ''
-      urlBase: ''
+      sslCertPassword: ""
+      sslCertPath: ""
+      updateScriptPath: ""
+      urlBase: ""
       username: admin
     mediamanagement:
       autoUnmonitorPreviouslyDownloadedEpisodes: false
-      chmodFolder: '755'
-      chownGroup: ''
+      chmodFolder: "755"
+      chownGroup: ""
       copyUsingHardlinks: true
       createEmptySeriesFolders: true
       deleteEmptyFolders: false
@@ -132,25 +135,34 @@ radarr:
       fileDate: none
       importExtraFiles: false
       minimumFreeSpaceWhenImporting: 100
-      recycleBin: ''
+      recycleBin: ""
       recycleBinCleanupDays: 7
       rescanAfterRefresh: always
-      scriptImportPath: ''
+      scriptImportPath: ""
       setPermissionsLinux: false
       skipFreeSpaceCheckWhenImporting: false
       useScriptImport: false
     naming:
-      movieFolderFormat: '{Movie Title} ({Release Year})'
+      movieFolderFormat: "{Movie Title} ({Release Year})"
       renameMovies: true
       replaceIllegalCharacters: true
-      standardMovieFormat: '{Movie Title} ({Release Year}) {Quality Title} {MediaInfo VideoCodec}'
+      standardMovieFormat: "{Movie Title} ({Release Year}) {Quality Title} {MediaInfo VideoCodec}"
     ui:
       firstDayOfWeek: 1
       theme: dark
-      timeFormat: 'HH:mm'
+      timeFormat: "HH:mm"
   declarr:
     type: radarr
-    url: 'http://localhost:7878'
+    url: "http://localhost:7878"
+
+  qualityProfile:
+    # include these profiles, the definitions come from the formatDbRepo
+    "1080p Balanced":
+      # place overrides here
+    "1080p Quality":
+    "2160p Balanced":
+    "2160p Quality":
+
   downloadClient:
     qBittorrent:
       fields:
@@ -161,6 +173,7 @@ radarr:
         username: admin
       implementation: QBittorrent
   qualityDefinition:
+    # these are really bad defaults
     Bluray-1080p:
       maxSize: 100
       minSize: 0
@@ -192,9 +205,9 @@ sonarr:
       authenticationRequired: enabled
       backupInterval: 7
       backupRetention: 28
-      bindAddress: '*'
+      bindAddress: "*"
       branch: main
-      consoleLogLevel: ''
+      consoleLogLevel: ""
       instanceName: Sonarr
       logLevel: debug
       logSizeLimit: 1
@@ -202,15 +215,15 @@ sonarr:
       passwordConfirmation: /run/secrets/sonarr/password_declarr
       port: 8989
       proxyEnabled: false
-      sslCertPassword: ''
-      sslCertPath: ''
-      updateScriptPath: ''
-      urlBase: ''
+      sslCertPassword: ""
+      sslCertPath: ""
+      updateScriptPath: ""
+      urlBase: ""
       username: admin
     mediamanagement:
       autoUnmonitorPreviouslyDownloadedEpisodes: false
-      chmodFolder: '755'
-      chownGroup: ''
+      chmodFolder: "755"
+      chownGroup: ""
       copyUsingHardlinks: true
       createEmptySeriesFolders: true
       deleteEmptyFolders: false
@@ -221,10 +234,10 @@ sonarr:
       fileDate: none
       importExtraFiles: false
       minimumFreeSpaceWhenImporting: 100
-      recycleBin: ''
+      recycleBin: ""
       recycleBinCleanupDays: 7
       rescanAfterRefresh: always
-      scriptImportPath: ''
+      scriptImportPath: ""
       setPermissionsLinux: false
       skipFreeSpaceCheckWhenImporting: false
       useScriptImport: false
@@ -233,13 +246,13 @@ sonarr:
         s{season:00}e{episode:00} - {Episode Title} {Quality Title} {MediaInfo
         VideoCodec}
       colonReplacementFormat: 4
-      customColonReplacementFormat: ''
-      dailyEpisodeFormat: '{Air-Date} - {Episode Title} {Quality Title} {MediaInfo VideoCodec}'
+      customColonReplacementFormat: ""
+      dailyEpisodeFormat: "{Air-Date} - {Episode Title} {Quality Title} {MediaInfo VideoCodec}"
       multiEpisodeStyle: 5
       renameEpisodes: true
       replaceIllegalCharacters: true
-      seasonFolderFormat: 'Season {season}'
-      seriesFolderFormat: '{Series Title}'
+      seasonFolderFormat: "Season {season}"
+      seriesFolderFormat: "{Series Title}"
       specialsFolderFormat: Specials
       standardEpisodeFormat: >-
         s{season:00}e{episode:00} - {Episode Title} {Quality Title} {MediaInfo
@@ -247,10 +260,10 @@ sonarr:
     ui:
       firstDayOfWeek: 1
       theme: dark
-      timeFormat: 'HH:mm'
+      timeFormat: "HH:mm"
   declarr:
     type: sonarr
-    url: 'http://localhost:8989'
+    url: "http://localhost:8989"
   downloadClient:
     qBittorrent:
       fields:
