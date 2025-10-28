@@ -29,7 +29,7 @@ from declarr.utils import (
 )
 
 
-class FormatDataSource:
+class FormatCompiler:
     def __init__(self, cfg):
         self.cfg = cfg
 
@@ -40,130 +40,163 @@ class FormatDataSource:
 
     def update_data(self):
         git_repo = self.cfg["declarr"].get("formatDbRepo", "")
-        git_branch = self.cfg["declarr"].get("formatDbBranch", "main")
+        git_branch = self.cfg["declarr"].get("formatDbBranch", "stable")
 
         if not git_repo:
             print("no format data source found")
             return
 
         if not self.data_dir.exists() or not any(self.data_dir.iterdir()):
-            print(subprocess.run(
-                ["git", "clone", git_repo, "-b", git_branch, self.data_dir]
-            ).decode())
+            subprocess.run(
+                ["git", "clone", git_repo, "-b", git_branch, self.data_dir],
+                check=True,
+            )
             return
 
         latest_mod_time = max(
             f.stat().st_mtime for f in self.data_dir.rglob("*") if f.is_file()
         )
 
-        if time.now() - latest_mod_time > 10 * 60:
-            subprocess.run(
-                ["git", "pull", git_repo, git_branch, "--force"],
+        if time.time() - latest_mod_time > 10 * 60:
+            try:
+                subprocess.run(
+                    ["git", "pull", git_repo, git_branch, "--force"],
+                    check=True,
+                )
+            except subprocess.CalledProcessError:
+                subprocess.run(
+                    ["rm", "-rf", self.data_dir],
+                    check=True,
+                )
+                subprocess.run(
+                    ["git", "clone", git_repo, "-b", git_branch, self.data_dir],
+                    check=True,
+                )
+
+    def compile_formats(self, cfg):
+        # use profilarr db as defaults
+        def load_yaml(file_path: str):
+            file_type = None
+            name = ""
+            if file_path.startswith("profile/"):
+                file_type = "profile"
+                name = file_path.removeprefix("profile/")
+            elif file_path.startswith("custom_format/"):
+                file_type = "format"
+                name = file_path.removeprefix("custom_format/")
+            else:
+                print("unexpected path")
+                raise Exception("unexpected path")
+
+            format_cfg = (
+                cfg.get(
+                    {
+                        "format": "customFormat",
+                        "profile": "qualityProfile",
+                    }[file_type]
+                ).get(name, {})
+                or {}
             )
 
-    def get_data(self, name: str, file_type: str):
-        file = (
-            self.data_dir
-            / {
-                "profile": "profiles",
-                "format": "custom_formats",
-            }[file_type]
-            / Path(name)
+            # pp(format_cfg)
+            # pp(self.format_data_source.get_data(name, t))
+
+            defaults = "{}"
+            try:
+                defaults = read_file(
+                    self.data_dir
+                    / {
+                        "profile": "profiles",
+                        "format": "custom_formats",
+                    }[file_type]
+                    / Path(name)
+                )
+            except FileNotFoundError:
+                pass
+            defaults = yaml.safe_load(defaults)
+
+            format_data = deep_merge(format_cfg, defaults)
+
+            return {"name": name, **format_data}
+
+        def load_regex_patterns():
+            patterns = {}
+
+            for file in (self.data_dir / "regex_patterns").iterdir():
+                if not file.is_file():
+                    continue
+
+                try:
+                    data = yaml.safe_load(read_file(file))
+                    patterns[data["name"]] = data["pattern"]
+                except Exception:
+                    # Silent fail for individual pattern files
+                    pass
+
+            # pp(patterns)
+            return patterns
+
+        with (
+            patch(
+                "profilarr.importer.compiler.get_language_import_score",
+                new=lambda *_, **__: -99999,
+            ),
+            patch(
+                "profilarr.importer.compiler.is_format_in_renames",
+                new=lambda *_, **__: False,
+            ),
+            patch("profilarr.importer.strategies.profile.load_yaml", new=load_yaml),
+            patch("profilarr.importer.strategies.format.load_yaml", new=load_yaml),
+            patch("profilarr.importer.utils.load_yaml", new=load_yaml),
+            patch(
+                "profilarr.importer.compiler.load_regex_patterns",
+                new=load_regex_patterns,
+            ),
+        ):
+            server_cfg = {
+                "type": cfg["declarr"]["type"],
+                "arr_server": "http://localhost:8989",
+                "api_key": "bafd0de9bc384a17881f27881a5c5e72",
+                "import_as_unique": False,
+            }
+
+            compiled = ProfileStrategy(server_cfg).compile(
+                cfg["qualityProfile"].keys(),
+            )
+
+            # # idk why you'd want to specifically import formats, but you do you
+            compiled["formats"] += FormatStrategy(server_cfg).compile(
+                cfg["customFormat"].keys(),
+            )["formats"]
+            # FormatStrategy(server_cfg).import_data(compiled)
+
+        cfg["customFormat"] = to_dict(
+            compiled["formats"],
+            "name",
+        )
+        cfg["qualityProfile"] = to_dict(
+            compiled["profiles"],
+            "name",
         )
 
-        try:
-            return yaml.safe_load(read_file(file.as_posix()))
-        except FileNotFoundError:
-            return {}
-
-
-def compile_format_data(
-    instance_type: Literal["sonarr", "radarr"],
-    profiles: List[str],
-    formats: List[str],
-    data_resolver: Callable[[str, str], dict],
-):
-    def load_yaml(file_path: str):
-        file_type = None
-        name = ""
-        if file_path.startswith("profile/"):
-            file_type = "profile"
-            name = file_path.removeprefix("profile/")
-        elif file_path.startswith("custom_format/"):
-            file_type = "format"
-            name = file_path.removeprefix("custom_format/")
-        else:
-            raise Exception("unexpected path")
-
-        return data_resolver(name, file_type)
-
-    with (
-        patch(
-            "profilarr.importer.compiler.get_language_import_score",
-            new=lambda *_, **__: -99999,
-        ),
-        patch(
-            "profilarr.importer.compiler.is_format_in_renames",
-            new=lambda *_, **__: False,
-        ),
-        patch("profilarr.importer.strategies.profile.load_yaml", new=load_yaml),
-        patch("profilarr.importer.strategies.format.load_yaml", new=load_yaml),
-        patch("profilarr.importer.utils.load_yaml", new=load_yaml),
-    ):
-        server_cfg = {
-            "type": instance_type,
-            "arr_server": "MOCK",
-            "api_key": "MOCK",
-            "import_as_unique": False,
-        }
-
-        compiled = ProfileStrategy(server_cfg).compile(profiles)
-
-        # # idk why you'd want to specifically import formats, but you do you
-        compiled["formats"] += FormatStrategy(server_cfg).compile(formats)["formats"]
-
-    return compiled
-
-
-def call():
-    cfg = {}
-    x = FormatDataSource(cfg)
-
-    def data_resolver(name, t):
-        format_cfg = cfg[
-            {
-                "format": "customFormat",
-                "profile": "qualityProfile",
-            }[t]
-        ][name]
-
-        format_data = deep_merge(format_cfg, x.get_data(name, t))
-
-        return {"name": name, **format_data}
-
-    compile_format_data(
-        cfg["declarr"]["type"],
-        cfg["customFormat"].keys(),
-        cfg["qualityProfile"].keys(),
-        data_resolver,
-    )
+        return cfg
 
 
 class Apply:
     def __init__(self, cfg, format_data_source):
-        self.format_data_source = format_data_source
+        self.format_compiler = format_data_source
 
-        self.meta_cfg = cfg["declarr"]
+        meta_cfg = cfg["declarr"]
         self.cfg = cfg
-        del cfg["declarr"]
+        # del cfg["declarr"]
 
-        self.type = self.meta_cfg["type"]
+        self.type = meta_cfg["type"]
         api_path = {
             "sonarr": "/api/v3",
             "radarr": "/api/v3",
             "prowlarr": "/api/v1",
         }[self.type]
-        self.base_url = self.meta_cfg["url"].strip("/")
+        self.base_url = meta_cfg["url"].strip("/")
         self.url = self.base_url + api_path
 
         adapter = requests.adapters.HTTPAdapter(
@@ -238,7 +271,7 @@ class Apply:
     ):
         existing = to_dict(self.get(path), "name")
         for name, dat in existing.items():
-            if name not in existing:
+            if name not in cfg:
                 self.deferr_delete(f"{path}/{dat['id']}")
 
         cfg = map_values(cfg, defaults)
@@ -410,8 +443,13 @@ class Apply:
                 "downloadClient": {},
                 "applications": {},
                 "rootFolder": [],
+                "customFormat": {},
+                "qualityProfile": {},
             },
         )
+
+        if self.type in ("sonarr", "radarr"):
+            self.cfg = self.format_compiler.compile_formats(self.cfg)
 
         self.create_tags()
         del self.cfg["tag"]
@@ -508,57 +546,48 @@ class Apply:
                 for name, x in self.cfg["qualityDefinition"].items()
             }
 
-            # use profilarr db as defaults
-            def data_resolver(name, t):
-                format_cfg = (
-                    self.cfg[
-                        {
-                            "format": "customFormat",
-                            "profile": "qualityProfile",
-                        }[t]
-                    ][name]
-                    or {}
-                )
-
-                format_data = deep_merge(
-                    format_cfg, self.format_data_source.get_data(name, t)
-                )
-
-                return {"name": name, **format_data}
-
-            comiled_formats = compile_format_data(
-                self.cfg["declarr"]["type"],
-                self.cfg["customFormat"].keys(),
-                self.cfg["qualityProfile"].keys(),
-                data_resolver,
+            self.update_resources(
+                "/customformat",
+                self.cfg["customFormat"],
+                lambda k, v: v,
             )
-            self.cfg["customFormat"] = comiled_formats["formats"]
-            self.cfg["qualityProfile"] = comiled_formats["profiles"]
-
-            self.update_resources("/customformat", self.cfg["customFormat"])
-            format_id_map = {
-                v["name"]: v["id"]  #
-                for v in self.get("/customformat")  #
-            }
             del self.cfg["customFormat"]
 
+            formats = self.get("/customformat")
+
+            def gen_formats_items(v):
+                id_score_map = to_dict(v["formatItems"], "name")
+                return [
+                    {
+                        "name": d["name"],
+                        "format": d["id"],
+                        "score": id_score_map.get(
+                            d["name"],
+                            {"score": 0},
+                        )["score"],
+                    }  #
+                    for d in formats
+                ]
+
             self.update_resources(
-                "qualityprofile",
+                "/qualityprofile",
                 self.cfg["qualityProfile"],
                 lambda k, v: {
                     **v,
-                    "formatItems": [
-                        {**x, "id": format_id_map[x["name"]]}  #
-                        for x in v["formatItems"]
-                    ],
+                    "formatItems": gen_formats_items(v),
                 },
             )
+            del self.cfg["qualityProfile"]
 
+        del self.cfg["declarr"]
         # pp(self.cfg)
         self.recursive_apply(self.cfg)
 
         for path, body in self.deferred_deletes:
-            self.delete(path, body)
+            try:
+                self.delete(path, body)
+            except Exception:
+                pass
 
 
 def resolve_paths(obj, paths):
@@ -590,7 +619,7 @@ def main():
         {"declarr": {"globalResolvePaths": []}},
     )
 
-    format_data_source = FormatDataSource(cfgs)
+    format_data_source = FormatCompiler(cfgs)
 
     cfgs = resolve_paths(cfgs, cfgs["declarr"]["globalResolvePaths"])
     del cfgs["declarr"]

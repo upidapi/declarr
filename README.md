@@ -35,4 +35,9 @@ manually add all tags to /tag, and the "fields" field is expanded from a dict.
 ## dev stuff
 ```bash
 nix run .#declarr ./config/config.yaml
+
+(cat /etc/systemd/system/declarr.service 
+  | grep ExecStart= | split row "=" | get 1 | cat $in 
+  | split row " " | get 1 | cat $in
+  | save config.json)
 ```
