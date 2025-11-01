@@ -20,7 +20,8 @@
         default = pkgs.mkShell {
           name = "declarr-dev";
           inputsFrom = [declarr];
-          # packages = with pkgs; [];
+          # packages = with pkgs; [
+          # ];
         };
       }
     );

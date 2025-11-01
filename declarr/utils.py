@@ -1,5 +1,7 @@
-import json 
+import json
 from typing import Callable
+import jsonpath_ng.ext as jsonpath
+
 
 type AccessOverload = Callable[[dict], bool] | str
 
@@ -68,3 +70,18 @@ def add_defaults(obj, ref):
 
 def pp(obj):
     print(json.dumps(obj, indent=2))
+
+
+def resolve_paths(obj, paths):
+    # print(paths)
+    def func(_, data, field):
+        # print(field)
+        file_path = data[field]
+
+        return read_file(file_path).strip()
+
+    for path in paths:
+        # print([x.value for x in  jsonpath.parse(path).find(obj)])
+        jsonpath.parse(path).update(obj, func)
+
+    return obj

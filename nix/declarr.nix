@@ -38,13 +38,17 @@
       setuptools
     ];
 
-    propagatedBuildInputs = with python3.pkgs; [
-      flask
-      pyyaml
-      requests
-      gitpython
-      regex
-    ];
+    propagatedBuildInputs = with python3.pkgs;
+      [
+        flask
+        pyyaml
+        requests
+        gitpython
+        regex
+      ]
+      ++ (with pkgs; [
+        pkgs.jellyseerr
+      ]);
 
     pythonImportsCheck = [
       "profilarr"

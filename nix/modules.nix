@@ -67,7 +67,7 @@ in {
         in
           pkgs.writeShellScript
           "declarr-init"
-          "${lib.getExe pkg} ${configFile}";
+          "${lib.getExe pkg} --sync ${configFile}";
       };
     };
   };
