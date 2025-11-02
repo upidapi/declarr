@@ -67,7 +67,7 @@ def main():
                 exit(1)
 
             if args.sync:
-                ArrSyncEngine(cfg, format_compiler).apply()
+                ArrSyncEngine(cfg, format_compiler).sync()
 
         elif cfg["declarr"]["type"] == "jellyseerr":
             if args.sync:
