@@ -9,7 +9,7 @@ import uuid
 
 import requests
 
-from declarr.utils import deep_merge, pp, read_file
+from declarr.utils import deep_merge, pp, read_file, to_dict
 
 
 def gen_folder_uuid(name: str) -> str:
@@ -125,7 +125,13 @@ def perms_to_int(cfg):
 def sync_jellyseerr(cfg):
     cfg = copy.deepcopy(cfg)
 
-    cfg_file = Path(cfg["declarr"]["stateDir"]) / "settings.json"
+    default_cfg = read_file(
+        Path(__file__).parent / "data/jellyseerr-settings.json",
+    )
+    default_cfg = json.loads(default_cfg)
+    default_cfg["clientId"] = str(uuid.uuid4())
+
+    cfg = deep_merge(cfg, default_cfg)
 
     cfg["main"]["defaultPermissions"] = perms_to_int(
         cfg["main"]["defaultPermissions"],
@@ -135,6 +141,30 @@ def sync_jellyseerr(cfg):
         {**d, "id": gen_folder_uuid(d["name"])}  #
         for d in cfg["jellyfin"]["libraries"]  #
     ]
+
+    # TODO: better name for this
+    def fix(cfg):
+        proto = "https" if cfg["useSsl"] else "http"
+        url = f"{proto}://{cfg['hostname']}:{cfg['port']}"
+        res = requests.post(
+            f"{url}/api/v3/qualityprofile",
+            headers={
+                "X-Api-Key": cfg["apiKey"],
+            },
+        ).json()
+
+        id = to_dict(res, "name").get(
+            cfg["activeProfileName"],
+            {"id": 0},
+        )["id"]
+
+        return {
+            "activeProfileId": id,
+            **cfg,
+        }
+
+    cfg["radarr"] = [fix(c) for c in cfg["radarr"]]
+    cfg["sonarr"] = [fix(c) for c in cfg["sonarr"]]
 
     # breaks /auth/jellyseerr if set before request
     # https://github.com/seerr-team/seerr/blob/b83367cbf2e0470cc1ad4eed8ec6eafaafafdbad/server/routes/auth.ts#L258
@@ -147,27 +177,17 @@ def sync_jellyseerr(cfg):
 
     del cfg["declarr"]
 
-    def generate_cfg():
-        new_cfg = read_file(
-            Path(__file__).parent / "data/jellyseerr-settings.json",
-        )
-        new_cfg = json.loads(new_cfg)
-        new_cfg["clientId"] = str(uuid.uuid4())
-
-        return new_cfg
-
+    cfg_file = Path(cfg["declarr"]["stateDir"]) / "settings.json"
     try:
         cur_cfg = read_file(cfg_file)
         if cur_cfg:
             cur_cfg = json.loads(cur_cfg)
-        else:
-            cur_cfg = generate_cfg()
+            cfg = deep_merge(cfg, cur_cfg)
     except FileNotFoundError:
-        cur_cfg = generate_cfg()
+        pass
 
-    cfg = deep_merge(cfg, cur_cfg)
     with open(cfg_file, "w") as f:
-        f.write(json.dumps(cfg))
+        f.write(json.dumps(cfg, indent=2))
 
     return cfg
 

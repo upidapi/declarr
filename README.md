@@ -11,6 +11,7 @@ SONARR__AUTH__APIKEY=your-api-key
 ```
 
 ## notes
+### sonarr, radarr, prowlarr
 Make sure that the sub services like qbittorrent is up and running before
 declarr starts. Since the api request usually errors if that is the case.
 
@@ -31,6 +32,10 @@ really wants it.
 
 Some endpoints have defaults, and or computed values, eg you don't have to 
 manually add all tags to /tag, and the "fields" field is expanded from a dict. 
+
+### jellyseerr
+{radarr,sonarr}[].activeProfileId can be inferred (calculated using api 
+requests) using {radarr,sonarr}[].activeProfileName
 
 ## dev stuff
 ```bash

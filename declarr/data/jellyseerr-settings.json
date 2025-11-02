@@ -157,19 +157,45 @@
     }
   },
   "jobs": {
-    "plex-recently-added-scan": { "schedule": "0 */5 * * * *" },
-    "plex-full-scan": { "schedule": "0 0 3 * * *" },
-    "plex-watchlist-sync": { "schedule": "0 */3 * * * *" },
-    "plex-refresh-token": { "schedule": "0 0 5 * * *" },
-    "radarr-scan": { "schedule": "0 0 4 * * *" },
-    "sonarr-scan": { "schedule": "0 30 4 * * *" },
-    "availability-sync": { "schedule": "0 0 5 * * *" },
-    "download-sync": { "schedule": "0 * * * * *" },
-    "download-sync-reset": { "schedule": "0 0 1 * * *" },
-    "jellyfin-recently-added-scan": { "schedule": "0 */5 * * * *" },
-    "jellyfin-full-scan": { "schedule": "0 0 3 * * *" },
-    "image-cache-cleanup": { "schedule": "0 0 5 * * *" },
-    "process-blacklisted-tags": { "schedule": "0 30 1 */7 * *" }
+    "plex-recently-added-scan": {
+      "schedule": "0 */5 * * * *"
+    },
+    "plex-full-scan": {
+      "schedule": "0 0 3 * * *"
+    },
+    "plex-watchlist-sync": {
+      "schedule": "0 */3 * * * *"
+    },
+    "plex-refresh-token": {
+      "schedule": "0 0 5 * * *"
+    },
+    "radarr-scan": {
+      "schedule": "0 0 4 * * *"
+    },
+    "sonarr-scan": {
+      "schedule": "0 30 4 * * *"
+    },
+    "availability-sync": {
+      "schedule": "0 0 5 * * *"
+    },
+    "download-sync": {
+      "schedule": "0 * * * * *"
+    },
+    "download-sync-reset": {
+      "schedule": "0 0 1 * * *"
+    },
+    "jellyfin-recently-added-scan": {
+      "schedule": "0 */5 * * * *"
+    },
+    "jellyfin-full-scan": {
+      "schedule": "0 0 3 * * *"
+    },
+    "image-cache-cleanup": {
+      "schedule": "0 0 5 * * *"
+    },
+    "process-blacklisted-tags": {
+      "schedule": "0 30 1 */7 * *"
+    }
   },
   "network": {
     "csrfProtection": false,
