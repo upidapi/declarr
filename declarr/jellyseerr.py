@@ -146,7 +146,7 @@ def sync_jellyseerr(cfg):
     def fix(cfg):
         proto = "https" if cfg["useSsl"] else "http"
         url = f"{proto}://{cfg['hostname']}:{cfg['port']}"
-        res = requests.post(
+        res = requests.get(
             f"{url}/api/v3/qualityprofile",
             headers={
                 "X-Api-Key": cfg["apiKey"],
@@ -175,8 +175,6 @@ def sync_jellyseerr(cfg):
     del cfg["jellyfin"]["email"]
     del cfg["jellyfin"]["password"]
 
-    del cfg["declarr"]
-
     cfg_file = Path(cfg["declarr"]["stateDir"]) / "settings.json"
     try:
         cur_cfg = read_file(cfg_file)
@@ -185,6 +183,8 @@ def sync_jellyseerr(cfg):
             cfg = deep_merge(cfg, cur_cfg)
     except FileNotFoundError:
         pass
+
+    del cfg["declarr"]
 
     with open(cfg_file, "w") as f:
         f.write(json.dumps(cfg, indent=2))
