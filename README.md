@@ -10,6 +10,15 @@ SONARR__AUTH__APIKEY=your-api-key
 # https://wiki.servarr.com/en/sonarr/environment-variables
 ```
 
+## nix
+Built to be used with nix, but works fully without it. See my personal dotfiles 
+([*arr](https://github.com/upidapi/NixOs/blob/main/modules/nixos/homelab/media/arr.nix), 
+[jellyseerr](https://github.com/upidapi/NixOs/blob/main/modules/nixos/homelab/media/jellyseerr/default.nix))
+for usage examples.
+
+The *arr stack is configured under services.declarr, jellyseerr is configured 
+under services.jellyseerr.config
+
 ## notes
 ### sonarr, radarr, prowlarr
 Make sure that the sub services like qbittorrent is up and running before

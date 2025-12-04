@@ -9,6 +9,8 @@
   # inherit (my_lib.opt) mkEnableOpt;
   cfg = config.services.declarr;
 in {
+  imports = [./jellyseerr.nix];
+
   options.services.declarr = {
     enable = mkEnableOption "declarr";
 
@@ -56,7 +58,11 @@ in {
         User = cfg.user;
         Group = cfg.group;
         StateDirectory = "declarr";
+
+        Type = "oneshot";
+        RemainAfterExit = "yes";
         Restart = "on-failure";
+
         ExecStart = let
           configFile =
             pkgs.writeText
