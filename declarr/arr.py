@@ -480,18 +480,17 @@ class ArrSyncEngine:
 
                 return profile_map[id]
 
-        self.sync_contracts(
-            "/indexer",
-            self.cfg["indexer"],
-            lambda k, v: {
-                "priority": 25,
-                **v,
-                "appProfileId": gen_profile_id(v),
-            },
-        )
-        del self.cfg["indexer"]
+            self.sync_contracts(
+                "/indexer",
+                self.cfg["indexer"],
+                lambda k, v: {
+                    "priority": 25,
+                    **v,
+                    "appProfileId": gen_profile_id(v),
+                },
+            )
+            del self.cfg["indexer"]
 
-        if self.type in ("prowlarr",):
             self.sync_contracts(
                 "/applications",
                 self.cfg["applications"],

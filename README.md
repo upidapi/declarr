@@ -122,8 +122,9 @@ declarr starts, otherwise the api request errors.
 - /downloadClient
 
 - /indexer
-  - don't set on sonarr/radarr if prowlarr is configured. This is to avoid
-  declarr from editing and deleting the indexers that prowlar creates.
+  - prowlarr
+  - This is to avoid declarr from editing and deleting the indexers that prowlar
+    creates.
 
 - /tag
   - Additional tags to be created. All other (string) tag fields are
