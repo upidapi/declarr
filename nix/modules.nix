@@ -5,11 +5,36 @@
   self',
   ...
 }: let
-  inherit (lib) mkOption types mkEnableOption;
+  inherit (lib) mkOption types mkEnableOption mkIf;
   # inherit (my_lib.opt) mkEnableOpt;
   cfg = config.services.declarr;
+
+  mkArrSerivice = name: let
+    apiKeyEnvVar = "${lib.toUpper name}__AUTH__APIKEY";
+    cfg = config.services.${name};
+  in {
+    options.services.${name}.apiKeyFile = mkOption {
+      type = lib.types.str;
+    };
+    config.systemd.services.${name}.serviceConfig.ExecStart = mkIf cfg.enable (
+      lib.mkForce
+      (pkgs.writeShellScript
+        "init-${name}" ''
+          ${apiKeyEnvVar}=$(cat ${cfg.apiKeyFile}) \
+            ${lib.getExe cfg.package} \
+            -nobrowser \
+            -data="${cfg.dataDir}"
+        '')
+    );
+  };
 in {
-  imports = [./jellyseerr.nix];
+  imports = [
+    ./jellyseerr.nix
+    (mkArrSerivice "sonarr")
+    (mkArrSerivice "radarr")
+    (mkArrSerivice "lidarr")
+    (mkArrSerivice "prowlarr")
+  ];
 
   options.services.declarr = {
     enable = mkEnableOption "declarr";
