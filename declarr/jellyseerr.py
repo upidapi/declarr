@@ -1,6 +1,7 @@
 import copy
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 import subprocess
@@ -10,6 +11,9 @@ import uuid
 import requests
 
 from declarr.utils import deep_merge, pp, read_file, to_dict
+
+
+log = logging.getLogger(__name__)
 
 
 def gen_folder_uuid(name: str) -> str:
@@ -196,7 +200,8 @@ def run_jellyseerr(cfg):
     env = os.environ.copy()
     env["CONFIG_DIRECTORY"] = cfg["declarr"]["stateDir"]
     env["PORT"] = str(cfg["declarr"]["port"])
-
+    
+    log.debug("Starting jellyseerr")
     proc = subprocess.Popen(
         ["jellyseerr"],
         stdout=None,
@@ -207,6 +212,7 @@ def run_jellyseerr(cfg):
     time.sleep(2)
 
     # https://github.com/fallenbagel/jellyseerr/blob/b83367cbf2e0470cc1ad4eed8ec6eafaafafdbad/server/routes/auth.ts#L226
+    # log.debug("")
     api_key = cfg["main"]["apiKey"]
     requests.post(
         cfg["declarr"]["url"] + "/api/v1/auth/jellyfin",
@@ -226,6 +232,6 @@ def run_jellyseerr(cfg):
             "hostname": cfg["jellyfin"]["ip"],
         },
     )
-    # print(res.text)
+    # log.debug(res.text)
 
     proc.wait()

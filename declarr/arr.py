@@ -11,16 +11,20 @@ import yaml
 import json
 from profilarr.importer.strategies.format import FormatStrategy
 from profilarr.importer.strategies.profile import ProfileStrategy
-
+import logging
 
 from declarr.utils import (
     add_defaults,
     deep_merge,
     map_values,
+    pp,
+    prettify,
     read_file,
     to_dict,
     unique,
 )
+
+log = logging.getLogger(__name__)
 
 
 class FormatCompiler:
@@ -37,7 +41,7 @@ class FormatCompiler:
         git_branch = self.cfg["declarr"].get("formatDbBranch", "stable")
 
         if not git_repo:
-            print("no format data source found")
+            log.error("no format data source found")
             return
 
         if not self.data_dir.exists() or not any(self.data_dir.iterdir()):
@@ -79,7 +83,7 @@ class FormatCompiler:
                 file_type = "format"
                 name = file_path.removeprefix("custom_format/")
             else:
-                print("unexpected path")
+                log.error("unexpected path")
                 raise Exception("unexpected path")
 
             format_cfg = (
@@ -202,7 +206,6 @@ class ArrSyncEngine:
         self.r.mount("https://", adapter)
 
         api_key = self.cfg["config"]["host"]["apiKey"]
-        # print(api_key)
         self.r.headers.update({"X-Api-Key": api_key})
 
         self.tag_map = {}
@@ -212,10 +215,14 @@ class ArrSyncEngine:
 
     def _base_req(self, name, f, path: str, body):
         body = {} if body is None else body
-        print(f"{name} {self.url}{path}")
-        # print(f"{name} {self.url}{path} {pp(body)}")
+
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(f"{name} {self.url}{path} {prettify(body)}")
+        else:
+            log.info(f"{name} {self.url}{path}")
+
         res = f(self.url + path, json=body)
-        # print(res.request.json())
+        log.debug(f"=> {prettify(res.text)}")
 
         if res.status_code < 300:
             return res.json()
@@ -275,6 +282,7 @@ class ArrSyncEngine:
         path: str,
         cfg: dict,
         defaults: Callable[[str, dict], dict],
+        allow_error=False,
     ):
         existing = to_dict(self.get(path), "name")
         for name, dat in existing.items():
@@ -292,10 +300,16 @@ class ArrSyncEngine:
 
         for name, dat in cfg.items():
             if name in existing:
-                self.put(
-                    f"{path}/{existing[name]['id']}",
-                    {**existing[name], **dat},
-                )
+                try:
+                    # TODO: try catch?
+                    self.put(
+                        f"{path}/{existing[name]['id']}",
+                        {**existing[name], **dat},
+                    )
+                except Exception as e:
+                    if not allow_error:
+                        raise e
+                    log.error(e)
             else:
                 self.post(path, dat)
 
@@ -354,9 +368,10 @@ class ArrSyncEngine:
             else:
                 self.post(path, data)
 
-    def recursive_sync(self, obj, resource=""):
-        # print(resource)
+    # def sync_paths(self, paths: list[str]):
+    #     pass
 
+    def recursive_sync(self, obj, resource=""):
         if isinstance(obj, list):
             for body in obj:
                 self.post(resource, body)
@@ -378,6 +393,12 @@ class ArrSyncEngine:
             )
             return
 
+        # if resource in paths:
+        #     self.put(
+        #         resource,
+        #         deep_merge(obj, self.get(resource)),
+        #     )
+
         for key in obj:
             self.recursive_sync(obj[key], f"{resource}/{key}")
 
@@ -389,12 +410,14 @@ class ArrSyncEngine:
             self.cfg,
             {
                 "tag": [],
+                "rootFolder": [],
+
                 "appProfile": {},
                 "indexer": {},
                 "indexerProxy": {},
                 "downloadClient": {},
                 "applications": {},
-                "rootFolder": [],
+
                 "customFormat": {},
                 "qualityProfile": {},
             },
@@ -402,6 +425,10 @@ class ArrSyncEngine:
 
         if self.type in ("sonarr", "radarr"):
             self.cfg = self.format_compiler.compile_formats(self.cfg)
+
+        log.debug(
+            f"{self.cfg['declarr']['name']} cfg: {json.dumps(self.cfg, indent=2)}"
+        )
 
         self.sync_tags()
         del self.cfg["tag"]
@@ -453,17 +480,18 @@ class ArrSyncEngine:
 
                 return profile_map[id]
 
-            self.sync_contracts(
-                "/indexer",
-                self.cfg["indexer"],
-                lambda k, v: {
-                    "priority": 25,
-                    **v,
-                    "appProfileId": gen_profile_id(v),
-                },
-            )
-            del self.cfg["indexer"]
+        self.sync_contracts(
+            "/indexer",
+            self.cfg["indexer"],
+            lambda k, v: {
+                "priority": 25,
+                **v,
+                "appProfileId": gen_profile_id(v),
+            },
+        )
+        del self.cfg["indexer"]
 
+        if self.type in ("prowlarr",):
             self.sync_contracts(
                 "/applications",
                 self.cfg["applications"],
@@ -502,6 +530,7 @@ class ArrSyncEngine:
                 "/customformat",
                 self.cfg["customFormat"],
                 lambda k, v: v,
+                True,
             )
             del self.cfg["customFormat"]
 
@@ -528,10 +557,14 @@ class ArrSyncEngine:
                     **v,
                     "formatItems": gen_formats_items(v),
                 },
+                True,
             )
             del self.cfg["qualityProfile"]
 
         del self.cfg["declarr"]
+        # pp(self.cfg)
+        # TODO: explicitly set paths
+        #  eg /config/ui, /config/host
         self.recursive_sync(self.cfg)
 
         for path, body in self.deferred_deletes:

@@ -68,8 +68,21 @@ def add_defaults(obj, ref):
     return obj
 
 
+def prettify(thing):
+    if isinstance(thing, str):
+        try:
+            thing = json.loads(thing)
+        except json.JSONDecodeError:
+            pass
+
+    try:
+        return json.dumps(thing, indent=2)
+    except json.JSONDecodeError:
+        return str(thing)
+
+
 def pp(obj):
-    print(json.dumps(obj, indent=2))
+    print(prettify(obj))
 
 
 def resolve_paths(obj, paths):
