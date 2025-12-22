@@ -1,0 +1,93 @@
+jellyseerr:
+  declarr:
+    port: 8097
+    resolvePaths:
+      - "$.main.apiKey"
+      - "$.jellyfin.password"
+      - "$.radarr[*].apiKey"
+      - "$.sonarr[*].apiKey"
+    stateDir: "/var/lib/jellyseerr"
+    type: "jellyseerr"
+    url: "http://localhost:8097"
+  jellyfin:
+    apiKey: "/run/secrets/jellyfin/jellyseerr-api-key"
+    email: "test@test.com"
+    externalHostname: "https://jellyfin.upidapi.dev"
+    ip: "127.0.0.1"
+    jellyfinForgotPasswordUrl: ""
+    libraries:
+      - enabled: true
+        name: "Movies"
+        type: "movie"
+      - enabled: true
+        name: "Shows"
+        type: "show"
+    name: "upinix-laptop"
+    password: "/run/secrets/jellyfin/users/admin/password_jellyseerr"
+    port: 8096
+    urlBase: ""
+    useSsl: false
+    username: "admin"
+  main:
+    apiKey: "/run/secrets/jellyseerr/api-key"
+    applicationTitle: "Jellyseerr"
+    applicationUrl: ""
+    cacheImages: false
+    defaultPermissions:
+      autoApprove: true
+      autoApprove4k: true
+      autoRequest: true
+      request: true
+      request4k: true
+    defaultQuotas:
+      movie: {}
+      tv: {}
+    discoverRegion: ""
+    enableSpecialEpisodes: false
+    hideAvailable: false
+    localLogin: true
+    locale: "en"
+    mediaServerLogin: true
+    mediaServerType: 2
+    newPlexLogin: true
+    originalLanguage: ""
+    partialRequestsEnabled: true
+    streamingRegion: ""
+  public:
+    initialized: true
+  radarr:
+    - activeDirectory: "/raid/media/movies"
+      activeProfileName: "1080p Balanced"
+      apiKey: "/run/secrets/radarr/api-key_jellyseerr"
+      externalUrl: "https://radarr.upidapi.dev"
+      hostname: "127.0.0.1"
+      id: 0
+      is4k: false
+      isDefault: true
+      minimumAvailability: "released"
+      name: "radarr"
+      port: 7878
+      preventSearch: false
+      syncEnabled: true
+      tagRequests: false
+      tags: []
+      useSsl: false
+  sonarr:
+    - activeDirectory: "/raid/media/tv"
+      activeProfileName: "1080p Balanced"
+      animeTags: []
+      apiKey: "/run/secrets/sonarr/api-key_jellyseerr"
+      enableSeasonFolders: true
+      externalUrl: "https://sonarr.upidapi.dev"
+      hostname: "127.0.0.1"
+      id: 0
+      is4k: false
+      isDefault: true
+      name: "sonarr"
+      port: 8989
+      preventSearch: false
+      syncEnabled: true
+      tagRequests: false
+      tags: []
+      useSsl: false
+  tautulli: {}
