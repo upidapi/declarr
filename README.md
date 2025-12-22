@@ -1,5 +1,6 @@
 # declarr 
-Declarative config for the *arr stack (currently sonarr, raddar, prowlarr)
+Declarative config for the *arr stack (currently sonarr, raddar, prowlarr,
+jellyseerr)
 
 The goal of this repository is to provide a relatively simple syncing engine
 that does as much as possible with as little code as possible. It is designed to
@@ -14,41 +15,41 @@ Buildarr-style validation) is explicitly out of scope.
 > right for breaking changes.
 
 ## Inspiration / similar projects
-- Buildarr
-  - A full batteries included managment program
+Buildarr
+- A full batteries included managment program
 
-  - To complex for my taste
-  - Personal skill issue (i couldn't get it to run under nix)
+- To complex for my taste
+- Personal skill issue (i couldn't get it to run under nix)
 
-- Flemarr
-  - API parameters stored in YAML to push changes. 
+Flemarr
+- API parameters stored in YAML to push changes. 
 
-  - Cant handle idempotent updates 
-  - Cant generate ids for things during sync
-    - This makes many things impossible, likes configuring tags as these
-      must be configured via a non repoducable id
-  - No QOL features
+- Cant handle idempotent updates 
+- Cant generate ids for things during sync
+  - This makes many things impossible, likes configuring tags as these
+    must be configured via a non repoducable id
+- No QOL features
 
-  - A massive inspiration for this project, I probably would not have made this 
-    if it were not for flemarr. 
+- A massive inspiration for this project, I probably would not have made this 
+  if it were not for flemarr. 
 
-- Recyclarr
-  - Automatically syncs recommended TRaSH-Guides settings to Sonarr/Radarr
+Recyclarr
+- Automatically syncs recommended TRaSH-Guides settings to Sonarr/Radarr
 
-  - Only supports Sonarr/Radarr
-  - To complex for my taste
-  - No fine grain control
+- Only supports Sonarr/Radarr
+- To complex for my taste
+- No fine grain control
 
-- Profilarr
-  - Configuration management tool for Radarr/Sonarr, excellent at
-    quality profiles and custom formats
+Profilarr
+- Configuration management tool for Radarr/Sonarr, excellent at
+  quality profiles and custom formats
 
-  - Only supports Sonarr/Radarr
-  - No declarative config, 
-  - Limited features
+- Only supports Sonarr/Radarr
+- No declarative config, 
+- Limited features
 
-  - Declarr uses profilarr under the hood to compile qualityProfile and
-    customFormat
+- Declarr uses profilarr under the hood to compile qualityProfile and
+  customFormat
 
 
 ## nix
