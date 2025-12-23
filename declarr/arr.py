@@ -525,7 +525,8 @@ class ArrSyncEngine:
                     return id if id in avalible_ids else default_id
 
                 return profile_map[id]
-
+    
+            # TODO: make it possible to set /indexer for sonarr, radarr, lidarr
             self.sync_contracts(
                 "/indexer",
                 self.cfg["indexer"],
@@ -644,6 +645,7 @@ class ArrSyncEngine:
 
             # TODO:: custom formats and quality profiles for lidarr
 
+        # FIXME: defaults are broken
         self.sync_contracts("/notification", self.cfg["notification"])
 
         # self.sync_contracts("/importlist", self.cfg["importList"])

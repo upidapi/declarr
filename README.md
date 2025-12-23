@@ -147,6 +147,8 @@ declarr starts, otherwise the api request errors.
 
 - /indexer
   - prowlarr
+  - you need to set .indexerName to the name of the indexer. This is to make it
+    possible to find the right schematic. 
   - This is to avoid declarr from editing and deleting the indexers that prowlar
     creates.
 
