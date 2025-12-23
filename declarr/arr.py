@@ -189,7 +189,6 @@ class ArrSyncEngine:
 
         meta_cfg = cfg["declarr"]
         self.cfg = cfg
-        # del cfg["declarr"]
 
         self.type = meta_cfg["type"]
         api_path = {
@@ -276,8 +275,6 @@ class ArrSyncEngine:
             # TODO: delete unused tags
 
         self.tag_map = {v["label"]: v["id"] for v in self.get("/tag")}
-
-        del self.cfg["tag"]
 
     def sync_resources(
         self,
@@ -466,7 +463,6 @@ class ArrSyncEngine:
         # pp(self.tag_map)
 
         self.sync_contracts("/downloadClient", self.cfg["downloadClient"])
-        del self.cfg["downloadClient"]
 
         # print(self.profile_map)
         if self.type in ("prowlarr",):
@@ -487,7 +483,6 @@ class ArrSyncEngine:
                 if self.cfg["appProfile"] is None  #
                 or v["name"] in self.cfg["appProfile"]
             }
-            del self.cfg["appProfile"]
 
             def gen_profile_id(v):
                 avalible_ids = profile_map.values()
@@ -514,13 +509,10 @@ class ArrSyncEngine:
                     "appProfileId": gen_profile_id(v),
                 },
             )
-            del self.cfg["indexer"]
 
             self.sync_contracts("/applications", self.cfg["applications"])
-            del self.cfg["applications"]
 
             self.sync_contracts("/indexerProxy", self.cfg["indexerProxy"])
-            del self.cfg["indexerProxy"]
 
         if self.type in ("sonarr", "radarr", "lidarr"):
             qmap = to_dict(
@@ -533,14 +525,12 @@ class ArrSyncEngine:
                     f"/qualityDefinition/{qmap[name]['id']}",
                     deep_merge(x, qmap[name]),
                 )
-            del self.cfg["qualityDefinition"]
 
             # self.sync_contracts(
             #     "/metadata",
             #     self.cfg["metadata"],
             #     only_update=True,
             # )
-            # del self.cfg["metadata"]
 
         if self.type in ("sonarr", "radarr"):
             self.sync_resources(
@@ -548,7 +538,6 @@ class ArrSyncEngine:
                 self.cfg["customFormat"],
                 allow_error=True,
             )
-            del self.cfg["customFormat"]
 
             formats = self.get("/customformat")
 
@@ -575,7 +564,6 @@ class ArrSyncEngine:
                 },
                 allow_error=True,
             )
-            del self.cfg["qualityProfile"]
 
         if self.type in ("sonarr", "radarr") and self.cfg["rootFolder"] is not None:
             cfg = {v: {"path": v} for v in self.cfg.get("rootFolder", [])}
@@ -590,7 +578,6 @@ class ArrSyncEngine:
             for name, data in cfg.items():
                 if name not in existing.keys():
                     self.post(path, data)
-            del self.cfg["rootFolder"]
 
         if self.type == "lidarr":
             # cfg = {
@@ -626,31 +613,23 @@ class ArrSyncEngine:
                 },
                 # key="path",
             )
-            del self.cfg["rootFolder"]
 
             # manual: config/metadataProvider
 
             # TODO:: custom formats and quality profiles for lidarr
 
         self.sync_contracts("/notification", self.cfg["notification"])
-        del self.cfg["notification"]
 
         self.sync_contracts("/importlist", self.cfg["importList"])
-        del self.cfg["importList"]
 
         # /importlist can be both post to to update setting
         # and put to to create a new resource, bruh
 
         # TODO: /autoTagging
 
-        del self.cfg["declarr"]
-        # pp(self.cfg)
         # TODO: explicitly set paths
         #  eg /config/ui, /config/host
-
-        # TODO: only use heuristic for /config/*
-        # self.recursive_sync(self.cfg["config"], resource="/config")
-        self.recursive_sync(self.cfg)
+        self.recursive_sync(self.cfg["config"], resource="/config")
 
         for path, body in self.deferred_deletes:
             try:
