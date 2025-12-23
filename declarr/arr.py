@@ -192,6 +192,7 @@ class ArrSyncEngine:
         api_path = {
             "sonarr": "/api/v3",
             "radarr": "/api/v3",
+            "lidarr": "/api/v1",
             "prowlarr": "/api/v1",
         }[self.type]
         self.base_url = meta_cfg["url"].strip("/")
@@ -253,9 +254,16 @@ class ArrSyncEngine:
 
     def sync_tags(self):
         tags = [*self.cfg["tag"]]
+
         for x in ["indexer", "indexerProxy", "downloadClient", "applications"]:
             for y in self.cfg[x].values():
                 tags += y.get("tags", [])
+
+        if self.type == "lidarr":
+            tags += sum(
+                [x.get("defaultTags") for x in self.cfg["rootFolder"].values()],
+                [],
+            )
 
         existing = [v["label"] for v in self.get("/tag")]
         for tag in [tag.lower() for tag in unique(tags)]:
@@ -265,17 +273,67 @@ class ArrSyncEngine:
         self.tag_map = {v["label"]: v["id"] for v in self.get("/tag")}
 
     def sync_rootfolders(self):
-        cfg = {v: {"path": v} for v in self.cfg["rootFolder"]}
-        path = "/rootFolder"
+        if self.type != "lidarr":
+            cfg = {v: {"path": v} for v in self.cfg.get("rootFolder", [])}
 
-        existing = to_dict(self.get(path), "path")
-        for name, data in existing.items():
-            if name not in cfg.keys():
-                self.delete(f"{path}/{data['id']}")
+            path = "/rootFolder"
 
-        for name, data in cfg.items():
-            if name not in existing.keys():
-                self.post(path, data)
+            existing = to_dict(self.get(path), "path")
+            for name, data in existing.items():
+                if name not in cfg.keys():
+                    self.delete(f"{path}/{data['id']}")
+
+            for name, data in cfg.items():
+                if name not in existing.keys():
+                    self.post(path, data)
+
+            return
+
+        cfg = {
+            v["path"]: {"name": k, **v}
+            for k, v in self.cfg.get("rootFolder", {}).items()
+        }
+
+        """
+        {
+            "defaultQualityProfileId":1,
+            "defaultMetadataProfileId":1,
+            "defaultMonitorOption":"all",
+            "defaultNewItemMonitorOption":"all",
+            "defaultTags":[4],
+            "path":"/raid/media/music/",
+            "name":"a"
+        }
+        """
+
+        quality_profile_map = {
+            v["name"]: v["id"]  #
+            for v in self.get("/qualityprofile")
+        }
+        metadata_profile_map = {
+            v["name"]: v["id"]  #
+            for v in self.get("/metadataprofile")
+        }
+
+        self.sync_resources(
+            "/rootFolder",
+            self.cfg.get("rootFolder", {}),
+            lambda k, v: {
+                **v,
+                # "name": k,
+                "defaultTags": [
+                    self.tag_map[t.lower()] if isinstance(t, str) else t
+                    for t in v.get("tags", [])
+                ],
+                "defaultQualityProfileId": quality_profile_map[
+                    v["defaultQualityProfileId"]
+                ],
+                "defaultMetadataProfileId": metadata_profile_map[
+                    v["defaultMetadataProfileId"]
+                ],
+            },
+            # key="path",
+        )
 
     def sync_resources(
         self,
@@ -283,8 +341,9 @@ class ArrSyncEngine:
         cfg: dict,
         defaults: Callable[[str, dict], dict],
         allow_error=False,
+        key: str = "name",
     ):
-        existing = to_dict(self.get(path), "name")
+        existing = to_dict(self.get(path), key)
         for name, dat in existing.items():
             if name not in cfg:
                 self.deferr_delete(f"{path}/{dat['id']}")
@@ -406,29 +465,26 @@ class ArrSyncEngine:
         # self.get("/ping")
         self.r.get(self.base_url + "/ping").raise_for_status()
 
-        self.cfg = add_defaults(
-            self.cfg,
-            {
-                "tag": [],
-                "rootFolder": [],
-
-                "appProfile": {},
-                "indexer": {},
-                "indexerProxy": {},
-                "downloadClient": {},
-                "applications": {},
-
-                "customFormat": {},
-                "qualityProfile": {},
-            },
-        )
-
-        if self.type in ("sonarr", "radarr"):
-            self.cfg = self.format_compiler.compile_formats(self.cfg)
+        self.cfg = {
+            "tag": [],
+            # "rootFolder": [],
+            "appProfile": {},
+            "indexer": {},
+            "indexerProxy": {},
+            "downloadClient": {},
+            "applications": {},
+            "customFormat": {},
+            "qualityProfile": {},
+            "qualityDefinition": {},
+            **self.cfg,
+        }
 
         log.debug(
             f"{self.cfg['declarr']['name']} cfg: {json.dumps(self.cfg, indent=2)}"
         )
+
+        if self.type in ("sonarr", "radarr"):
+            self.cfg = self.format_compiler.compile_formats(self.cfg)
 
         self.sync_tags()
         del self.cfg["tag"]
@@ -511,20 +567,20 @@ class ArrSyncEngine:
             )
             del self.cfg["indexerProxy"]
 
-        if self.type in ("sonarr", "radarr"):
-            self.sync_rootfolders()
-            del self.cfg["rootFolder"]
-
+        if self.type in ("sonarr", "radarr", "lidarr"):
             qmap = to_dict(
                 self.get("/qualityDefinition"),
                 "title",
             )
 
-            self.cfg["qualityDefinition"] = {
-                qmap[name]["id"]: deep_merge(x, qmap[name])
-                for name, x in self.cfg["qualityDefinition"].items()
-            }
+            for name, x in self.cfg["qualityDefinition"].items():
+                self.post(
+                    f"/qualityDefinition/{qmap[name]['id']}",
+                    deep_merge(x, qmap[name]),
+                )
+            del self.cfg["qualityDefinition"]
 
+        if self.type in ("sonarr", "radarr"):
             self.sync_resources(
                 "/customformat",
                 self.cfg["customFormat"],
@@ -559,6 +615,10 @@ class ArrSyncEngine:
                 True,
             )
             del self.cfg["qualityProfile"]
+
+        if self.type in ("sonarr", "radarr", "lidarr"):
+            self.sync_rootfolders()
+            del self.cfg["rootFolder"]
 
         del self.cfg["declarr"]
         # pp(self.cfg)

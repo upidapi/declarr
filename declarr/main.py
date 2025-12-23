@@ -98,7 +98,7 @@ def main():
 
         cfg["declarr"]["name"] = key
 
-        if cfg["declarr"]["type"] in ("sonarr", "radarr", "prowlarr"):
+        if cfg["declarr"]["type"] in ("sonarr", "radarr", "lidarr", "prowlarr"):
             if format_compiler is None:
                 format_compiler = FormatCompiler(cfgs)
 

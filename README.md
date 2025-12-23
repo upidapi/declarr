@@ -131,7 +131,8 @@ declarr starts, otherwise the api request errors.
   automatically included and subsequently converted to IDs during sync.
 
 - /rootFolder
-  - sonarr, radarr
+  - list of paths for sonarr, radarr
+  - dict for lidarr
 
 - /customFormat, /qualityProfile
   - sonarr, radarr
