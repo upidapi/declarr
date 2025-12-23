@@ -3,8 +3,8 @@ Declarative config for the *arr stack (currently sonarr, raddar, lidarr,
 prowlarr, jellyseerr)
 
 > [!CAUTION]
-> Lidarr support is experimental and really new, expect buggs, and missing
-> features.
+> Lidarr support is experimental, really new and not really tested. Expect
+> buggs, and some missing features.
 
 The goal of this repository is to provide a relatively simple syncing engine
 that does as much as possible with as little code as possible. It is designed to
@@ -165,9 +165,6 @@ declarr starts, otherwise the api request errors.
     For details on how this works, see examples in the Dictionarry-Hub Database
     repository: https://github.com/Dictionarry-Hub/Database
 
-- /importList
-  - sonarr, prowlarr, lidarr
-
 - /appProfile
   - prowlarr
 - /indexerProxy
@@ -183,6 +180,8 @@ simply "put".
 
 Declarr supports all config options (that i know of) except for
 
+- /importList
+  - idk how to do auth
 - /autoTagging
 - /releaseProfile and /delayProfile
 - /customFormats, /qualityProfiles, /metadataProfile, /metadata for lidarr
@@ -194,7 +193,7 @@ If a top level field is not set, then declarr fully ignores it. However setting
 it to eg an empty set, then declarr will delete all resources not explicitly
 defined. 
 
-The fields under `/config`, such as `/config/ui and` `/config/host`, are handled
+The fields under `/config/*`, such as `/config/ui and` `/config/host`, are handled
 via a heuristic. If a field contains any subfields that are not dictionaries or
 lists, it is treated as a simple POST. The current values are merged and then
 reposted.
@@ -219,8 +218,7 @@ Ie declarr cant configure it from a separate process.
 Make it possible to do the reverse, ie pull the current state in *arr and
 jellyseerr into a config file. 
 
-Use the scheme endpoint eg `https://sonarr.upidapi.dev/api/v3/indexer/schema` to
-simplify declarr
+Create config files that match the trash guides
 
 ## dev stuff
 ```nu

@@ -22,6 +22,7 @@ from declarr.utils import (
     prettify,
     read_file,
     to_dict,
+    trace,
     unique,
 )
 
@@ -38,6 +39,8 @@ class FormatCompiler:
         self.update_data()
 
     def update_data(self):
+        return  # FIXME: remove once done
+
         git_repo = self.cfg["declarr"].get("formatDbRepo", "")
         git_branch = self.cfg["declarr"].get("formatDbBranch", "stable")
 
@@ -165,16 +168,16 @@ class FormatCompiler:
 
             # # idk why you'd want to specifically import formats, but you do you
             compiled["formats"] += FormatStrategy(server_cfg).compile(
-                cfg["customFormat"].keys(),
+                [] if cfg["customFormat"] is None else cfg["customFormat"].keys(),
             )["formats"]
             # FormatStrategy(server_cfg).import_data(compiled)
-    
+
         if cfg["customFormat"] is not None:
             cfg["customFormat"] = to_dict(
                 compiled["formats"],
                 "name",
             )
-        if cfg["customFormat"] is not None:
+        if cfg["qualityProfile"] is not None:
             cfg["qualityProfile"] = to_dict(
                 compiled["profiles"],
                 "name",
@@ -257,8 +260,12 @@ class ArrSyncEngine:
     def sync_tags(self):
         tags = self.cfg.get("tag", [])
 
-        for x in ["indexer", "indexerProxy", "downloadClient", "applications"]:
-            for y in self.cfg[x].values():
+        for k in ["indexer", "indexerProxy", "downloadClient", "applications"]:
+            if k not in self.cfg:
+                continue
+            if self.cfg[k] is None:
+                continue
+            for y in self.cfg[k].values():
                 tags += y.get("tags", [])
 
         if self.type == "lidarr":
@@ -280,7 +287,7 @@ class ArrSyncEngine:
         self,
         path: str,
         cfg: None | dict,
-        defaults: Callable[[str, dict], dict],
+        defaults: Callable[[str, dict], dict] = lambda k, v: v,
         allow_error=False,
         key: str = "name",
     ):
@@ -316,13 +323,21 @@ class ArrSyncEngine:
             else:
                 self.post(path, dat)
 
+    # format_fields
+    # def serialise_fields(self, f):
+    #     return
+
     def sync_contracts(
         self,
         path: str,
         cfg: dict,
         defaults: Callable[[str, dict], dict] = lambda k, v: v,
+        scheme_key=["implementation", "implementation"],
         # only_update=False,
     ):
+        if cfg is None:
+            return
+
         existing = to_dict(self.get(path), "name")
         # pp(existing)
         existing = map_values(
@@ -337,10 +352,19 @@ class ArrSyncEngine:
             lambda k, v: deep_merge(v, existing.get(k, {})),
         )
 
+        cfg = map_values(
+            cfg,
+            lambda k, v: {
+                "enable": True,
+                "name": k,
+                **v,
+            },
+        )
+
         # TODO: validate config against schema
         # TODO: sane select options (convert string to the enum index)
         schema = map_values(
-            to_dict(self.get(f"{path}/schema"), "implementation"),
+            to_dict(self.get(f"{path}/schema"), scheme_key[0]),
             # i don't know why but the arr clients always seem to delete the
             # "presets" key from the schema. (monkey see, monkey do)
             # https://github.com/Lidarr/Lidarr/blob/7277458721256b36ab6c248f5f3b34da94e4faf9/frontend/src/Utilities/State/getProviderState.js#L44
@@ -354,14 +378,14 @@ class ArrSyncEngine:
         )
         cfg = map_values(
             cfg,
-            lambda k, v: deep_merge(v, schema[v["implementation"]]),
+            lambda k, v: deep_merge(v, schema[v[scheme_key[1]]]),
         )
 
         cfg = map_values(
             cfg,
             lambda k, v: {
                 "enable": True,
-                "name": name,
+                "name": k,
                 **v,
             },
         )
@@ -375,13 +399,14 @@ class ArrSyncEngine:
                     for t in obj.get("tags", [])
                 ],
                 "fields": [
-                    {"name": k, "value": v} for k, v in obj.get("fields", {}).items()
+                    {"name": k} if v is None else {"name": k, "value": v}
+                    for k, v in obj.get("fields", {}).items()
                 ],
             },
         )
 
         for name, data in existing.items():
-            if name not in cfg.keys(): # and not only_update:
+            if name not in cfg.keys():  # and not only_update:
                 self.deferr_delete(f"{path}/{data['id']}")
 
         for name, data in cfg.items():
@@ -432,7 +457,7 @@ class ArrSyncEngine:
             f"{self.cfg['declarr']['name']} cfg: {json.dumps(self.cfg, indent=2)}"
         )
         self.r.get(self.base_url + "/ping").raise_for_status()
-    
+
         # TODO: add a strict mode where everything not declared is reset
         #  could be done via setting this to {} instead of None
         self.cfg = {
@@ -508,6 +533,7 @@ class ArrSyncEngine:
                     **v,
                     "appProfileId": gen_profile_id(v),
                 },
+                scheme_key=["name", "indexerName"],
             )
 
             self.sync_contracts("/applications", self.cfg["applications"])
@@ -521,7 +547,7 @@ class ArrSyncEngine:
             )
 
             for name, x in self.cfg["qualityDefinition"].items():
-                self.post(
+                self.put(
                     f"/qualityDefinition/{qmap[name]['id']}",
                     deep_merge(x, qmap[name]),
                 )
@@ -620,7 +646,7 @@ class ArrSyncEngine:
 
         self.sync_contracts("/notification", self.cfg["notification"])
 
-        self.sync_contracts("/importlist", self.cfg["importList"])
+        # self.sync_contracts("/importlist", self.cfg["importList"])
 
         # /importlist can be both post to to update setting
         # and put to to create a new resource, bruh

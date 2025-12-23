@@ -1,0 +1,173 @@
+{
+    "declarr": {
+        "formatDbBranch": "stable",
+        "formatDbRepo": "https://github.com/Dictionarry-Hub/Database",
+        "globalResolvePaths": [
+            "$.*.config.host.password",
+            "$.*.config.host.passwordConfirmation",
+            "$.*.config.host.apiKey",
+            "$.*.applications.*.fields.apiKey",
+            "$.*.indexer.*.fields.password",
+            "$.*.downloadClient.*.fields.password"
+        ],
+        "stateDir": "/var/lib/declarr"
+    },
+    "radarr": {
+        "config": {
+            "host": {
+                "analyticsEnabled": false,
+                "apiKey": "/run/secrets/radarr/api-key_declarr",
+                "authenticationMethod": "forms",
+                "authenticationRequired": "enabled",
+                "backupInterval": 7,
+                "backupRetention": 28,
+                "bindAddress": "*",
+                "branch": "main",
+                "consoleLogLevel": "",
+                "instanceName": "Radarr",
+                "logLevel": "debug",
+                "logSizeLimit": 1,
+                "password": "/run/secrets/radarr/password_declarr",
+                "passwordConfirmation": "/run/secrets/radarr/password_declarr",
+                "port": 8500,
+                "proxyEnabled": false,
+                "sslCertPassword": "",
+                "sslCertPath": "",
+                "updateScriptPath": "",
+                "urlBase": "",
+                "username": "admin"
+            },
+            "mediamanagement": {
+                "autoUnmonitorPreviouslyDownloadedEpisodes": false,
+                "chmodFolder": "755",
+                "chownGroup": "",
+                "copyUsingHardlinks": true,
+                "createEmptySeriesFolders": true,
+                "deleteEmptyFolders": false,
+                "downloadPropersAndRepacks": "preferAndUpgrade",
+                "enableMediaInfo": true,
+                "episodeTitleRequired": "always",
+                "extraFileExtensions": "srt",
+                "fileDate": "none",
+                "importExtraFiles": false,
+                "minimumFreeSpaceWhenImporting": 100,
+                "recycleBin": "",
+                "recycleBinCleanupDays": 7,
+                "rescanAfterRefresh": "always",
+                "scriptImportPath": "",
+                "setPermissionsLinux": false,
+                "skipFreeSpaceCheckWhenImporting": false,
+                "useScriptImport": false
+            },
+            "naming": {
+                "movieFolderFormat": "{Movie Title} ({Release Year})",
+                "renameMovies": true,
+                "replaceIllegalCharacters": true,
+                "standardMovieFormat": "{Movie Title} ({Release Year}) {Quality Title} {MediaInfo VideoCodec}"
+            },
+            "ui": {
+                "firstDayOfWeek": 1,
+                "theme": "dark",
+                "timeFormat": "HH:mm"
+            }
+        },
+        "customFormat": {},
+        "declarr": {
+            "type": "radarr",
+            "url": "http://localhost:8500"
+        },
+        "downloadClient": {
+            "qBittorrent": {
+                "fields": {
+                    "host": "192.168.15.1",
+                    "password": "/run/secrets/qbit/password_declarr",
+                    "port": 8509,
+                    "sequentialOrder": true,
+                    "username": "admin"
+                },
+                "implementation": "QBittorrent"
+            }
+        },
+        "qualityDefinition": {
+            "Bluray-1080p": {
+                "maxSize": 2000,
+                "minSize": 50.8,
+                "preferredSize": 1999
+            },
+            "Bluray-2160p": {
+                "maxSize": 2000,
+                "minSize": 102,
+                "preferredSize": 1999
+            },
+            "Bluray-720p": {
+                "maxSize": 2000,
+                "minSize": 25.7,
+                "preferredSize": 1999
+            },
+            "HDTV-1080p": {
+                "maxSize": 2000,
+                "minSize": 33.8,
+                "preferredSize": 1999
+            },
+            "HDTV-2160p": {
+                "maxSize": 2000,
+                "minSize": 85,
+                "preferredSize": 1999
+            },
+            "HDTV-720p": {
+                "maxSize": 2000,
+                "minSize": 17.1,
+                "preferredSize": 1999
+            },
+            "Remux-1080p": {
+                "maxSize": 2000,
+                "minSize": 102,
+                "preferredSize": 1999
+            },
+            "Remux-2160p": {
+                "maxSize": 2000,
+                "minSize": 187.4,
+                "preferredSize": 1999
+            },
+            "WEBDL-1080p": {
+                "maxSize": 2000,
+                "minSize": 12.5,
+                "preferredSize": 1999
+            },
+            "WEBDL-2160p": {
+                "maxSize": 2000,
+                "minSize": 34.5,
+                "preferredSize": 1999
+            },
+            "WEBDL-720p": {
+                "maxSize": 2000,
+                "minSize": 12.5,
+                "preferredSize": 1999
+            },
+            "WEBRip-1080p": {
+                "maxSize": 2000,
+                "minSize": 12.5,
+                "preferredSize": 1999
+            },
+            "WEBRip-2160p": {
+                "maxSize": 2000,
+                "minSize": 34.5,
+                "preferredSize": 1999
+            },
+            "WEBRip-720p": {
+                "maxSize": 2000,
+                "minSize": 12.5,
+                "preferredSize": 1999
+            }
+        },
+        "qualityProfile": {
+            "1080p Balanced": {},
+            "1080p Quality": {},
+            "2160p Balanced": {},
+            "2160p Quality": {}
+        },
+        "rootFolder": [
+            "/raid/media/movies"
+        ]
+    }
+}
