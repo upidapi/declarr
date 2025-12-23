@@ -1,6 +1,10 @@
 # declarr 
-Declarative config for the *arr stack (currently sonarr, raddar, prowlarr,
-jellyseerr)
+Declarative config for the *arr stack (currently sonarr, raddar, lidarr,
+prowlarr, jellyseerr)
+
+> [!CAUTION]
+> Lidarr support is experimental and really new, expect buggs, and missing
+> features.
 
 The goal of this repository is to provide a relatively simple syncing engine
 that does as much as possible with as little code as possible. It is designed to
@@ -103,9 +107,26 @@ for nix usage examples.
 Or look at the example configurations in [arr.yaml](config/arr.yaml)
 [jellyseerr.yaml](config/jellyseerr.yaml)
 
-### *arr stack (sonarr, radarr, prowlarr)
+### *arr stack (sonarr, radarr, prowlarr, lidarr)
 If noting mentions otherwise, the config is strutted like the api requests that
 will be used to configure it.
+
+All ID fields (that i know of) should be specified using the name of the
+referenced object rather than a numeric ID. The object’s own ID is inferred from
+the enclosing key, which is treated as the object name.
+
+```json
+{
+  "indexer": {
+    "indexerName": {
+      "id": "inferred by indexerName",
+      "name": "inferred by indexerName",
+      "appProfileId": "appProfileName",
+      "tags": ["tagName", "tagName2"]
+    }
+  }
+}
+```
 
 ```bash
 # you can use the {appname}__AUTH__APIKEY to set the api key
@@ -120,6 +141,9 @@ Make sure that the sub services like qbittorrent is up and running before
 declarr starts, otherwise the api request errors.
 
 - /downloadClient
+
+- /qualityDefinition
+  - sonarr, radarr, lidarr
 
 - /indexer
   - prowlarr
