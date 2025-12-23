@@ -16,6 +16,7 @@ import logging
 from declarr.utils import (
     add_defaults,
     deep_merge,
+    del_keys,
     map_values,
     pp,
     prettify,
@@ -167,15 +168,17 @@ class FormatCompiler:
                 cfg["customFormat"].keys(),
             )["formats"]
             # FormatStrategy(server_cfg).import_data(compiled)
-
-        cfg["customFormat"] = to_dict(
-            compiled["formats"],
-            "name",
-        )
-        cfg["qualityProfile"] = to_dict(
-            compiled["profiles"],
-            "name",
-        )
+    
+        if cfg["customFormat"] is not None:
+            cfg["customFormat"] = to_dict(
+                compiled["formats"],
+                "name",
+            )
+        if cfg["customFormat"] is not None:
+            cfg["qualityProfile"] = to_dict(
+                compiled["profiles"],
+                "name",
+            )
 
         return cfg
 
@@ -253,7 +256,7 @@ class ArrSyncEngine:
         return self._base_req("put ", self.r.put, path, body)
 
     def sync_tags(self):
-        tags = [*self.cfg["tag"]]
+        tags = self.cfg.get("tag", [])
 
         for x in ["indexer", "indexerProxy", "downloadClient", "applications"]:
             for y in self.cfg[x].values():
@@ -270,79 +273,23 @@ class ArrSyncEngine:
             if tag not in existing:
                 self.post("/tag", {"label": tag})
 
+            # TODO: delete unused tags
+
         self.tag_map = {v["label"]: v["id"] for v in self.get("/tag")}
 
-    def sync_rootfolders(self):
-        if self.type != "lidarr":
-            cfg = {v: {"path": v} for v in self.cfg.get("rootFolder", [])}
-
-            path = "/rootFolder"
-
-            existing = to_dict(self.get(path), "path")
-            for name, data in existing.items():
-                if name not in cfg.keys():
-                    self.delete(f"{path}/{data['id']}")
-
-            for name, data in cfg.items():
-                if name not in existing.keys():
-                    self.post(path, data)
-
-            return
-
-        cfg = {
-            v["path"]: {"name": k, **v}
-            for k, v in self.cfg.get("rootFolder", {}).items()
-        }
-
-        """
-        {
-            "defaultQualityProfileId":1,
-            "defaultMetadataProfileId":1,
-            "defaultMonitorOption":"all",
-            "defaultNewItemMonitorOption":"all",
-            "defaultTags":[4],
-            "path":"/raid/media/music/",
-            "name":"a"
-        }
-        """
-
-        quality_profile_map = {
-            v["name"]: v["id"]  #
-            for v in self.get("/qualityprofile")
-        }
-        metadata_profile_map = {
-            v["name"]: v["id"]  #
-            for v in self.get("/metadataprofile")
-        }
-
-        self.sync_resources(
-            "/rootFolder",
-            self.cfg.get("rootFolder", {}),
-            lambda k, v: {
-                **v,
-                # "name": k,
-                "defaultTags": [
-                    self.tag_map[t.lower()] if isinstance(t, str) else t
-                    for t in v.get("tags", [])
-                ],
-                "defaultQualityProfileId": quality_profile_map[
-                    v["defaultQualityProfileId"]
-                ],
-                "defaultMetadataProfileId": metadata_profile_map[
-                    v["defaultMetadataProfileId"]
-                ],
-            },
-            # key="path",
-        )
+        del self.cfg["tag"]
 
     def sync_resources(
         self,
         path: str,
-        cfg: dict,
+        cfg: None | dict,
         defaults: Callable[[str, dict], dict],
         allow_error=False,
         key: str = "name",
     ):
+        if cfg is None:
+            return
+
         existing = to_dict(self.get(path), key)
         for name, dat in existing.items():
             if name not in cfg:
@@ -377,6 +324,7 @@ class ArrSyncEngine:
         path: str,
         cfg: dict,
         defaults: Callable[[str, dict], dict] = lambda k, v: v,
+        # only_update=False,
     ):
         existing = to_dict(self.get(path), "name")
         # pp(existing)
@@ -387,19 +335,37 @@ class ArrSyncEngine:
                 "fields": {v["name"]: v.get("value", None) for v in val["fields"]},
             },
         )
-
         cfg = map_values(
             cfg,
             lambda k, v: deep_merge(v, existing.get(k, {})),
         )
-        # pp(cfg)
+
+        # TODO: validate config against schema
+        # TODO: sane select options (convert string to the enum index)
+        schema = map_values(
+            to_dict(self.get(f"{path}/schema"), "implementation"),
+            # i don't know why but the arr clients always seem to delete the
+            # "presets" key from the schema. (monkey see, monkey do)
+            # https://github.com/Lidarr/Lidarr/blob/7277458721256b36ab6c248f5f3b34da94e4faf9/frontend/src/Utilities/State/getProviderState.js#L44
+            lambda _, v: del_keys(
+                {
+                    **v,
+                    "fields": {v["name"]: v.get("value", None) for v in v["fields"]},
+                },
+                ["presets"],
+            ),
+        )
         cfg = map_values(
             cfg,
-            lambda name, obj: {
+            lambda k, v: deep_merge(v, schema[v["implementation"]]),
+        )
+
+        cfg = map_values(
+            cfg,
+            lambda k, v: {
                 "enable": True,
                 "name": name,
-                "configContract": f"{obj['implementation']}Settings",
-                **obj,
+                **v,
             },
         )
         cfg = map_values(cfg, defaults)
@@ -418,14 +384,17 @@ class ArrSyncEngine:
         )
 
         for name, data in existing.items():
-            if name not in cfg.keys():
-                self.delete(f"{path}/{data['id']}")
+            if name not in cfg.keys(): # and not only_update:
+                self.deferr_delete(f"{path}/{data['id']}")
 
         for name, data in cfg.items():
             if name in existing.keys():
                 self.put(f"{path}/{existing[name]['id']}", data)
+            # elif not only_update:
             else:
                 self.post(path, data)
+            # else:
+            #     raise Exception(f"Cant create more instances of the {path} resource")
 
     # def sync_paths(self, paths: list[str]):
     #     pass
@@ -462,44 +431,41 @@ class ArrSyncEngine:
             self.recursive_sync(obj[key], f"{resource}/{key}")
 
     def sync(self):
-        # self.get("/ping")
-        self.r.get(self.base_url + "/ping").raise_for_status()
-
-        self.cfg = {
-            "tag": [],
-            # "rootFolder": [],
-            "appProfile": {},
-            "indexer": {},
-            "indexerProxy": {},
-            "downloadClient": {},
-            "applications": {},
-            "customFormat": {},
-            "qualityProfile": {},
-            "qualityDefinition": {},
-            **self.cfg,
-        }
-
         log.debug(
             f"{self.cfg['declarr']['name']} cfg: {json.dumps(self.cfg, indent=2)}"
         )
+        self.r.get(self.base_url + "/ping").raise_for_status()
+    
+        # TODO: add a strict mode where everything not declared is reset
+        #  could be done via setting this to {} instead of None
+        self.cfg = {
+            "downloadClient": None,
+            "appProfile": None,
+            "applications": None,
+            #
+            "indexer": None,
+            "indexerProxie": None,
+            #
+            "qualityDefinition": {},
+            #
+            "customFormat": None,
+            "qualityProfile": None,
+            #
+            "rootFolder": None,
+            #
+            "importList": None,
+            "notification": None,
+            **self.cfg,
+        }
 
         if self.type in ("sonarr", "radarr"):
             self.cfg = self.format_compiler.compile_formats(self.cfg)
 
         self.sync_tags()
-        del self.cfg["tag"]
 
         # pp(self.tag_map)
 
-        self.sync_contracts(
-            "/downloadClient",
-            self.cfg["downloadClient"],
-            lambda k, v: {
-                "categories": [],
-                "priority": 25,
-                **v,
-            },
-        )
+        self.sync_contracts("/downloadClient", self.cfg["downloadClient"])
         del self.cfg["downloadClient"]
 
         # print(self.profile_map)
@@ -518,21 +484,25 @@ class ArrSyncEngine:
             profile_map = {
                 v["name"]: v["id"]  #
                 for v in self.get("/appprofile")  #
-                if v["name"] in self.cfg["appProfile"]
+                if self.cfg["appProfile"] is None  #
+                or v["name"] in self.cfg["appProfile"]
             }
             del self.cfg["appProfile"]
 
             def gen_profile_id(v):
                 avalible_ids = profile_map.values()
 
+                # the default id is the first created appProfile that exists
+                default_id = min(avalible_ids)
+
                 if "appProfileId" not in v:
-                    # assign new ones to a profile that should exist
-                    return min(avalible_ids)
+                    return default_id
 
                 id = v["appProfileId"]
                 if isinstance(id, int):
-                    # reassign new ones to a profile that should exist
-                    return id if id in avalible_ids else min(avalible_ids)
+                    # reassign new id if indexers appProfile got deleted
+                    # this should not happen
+                    return id if id in avalible_ids else default_id
 
                 return profile_map[id]
 
@@ -540,31 +510,16 @@ class ArrSyncEngine:
                 "/indexer",
                 self.cfg["indexer"],
                 lambda k, v: {
-                    "priority": 25,
                     **v,
                     "appProfileId": gen_profile_id(v),
                 },
             )
             del self.cfg["indexer"]
 
-            self.sync_contracts(
-                "/applications",
-                self.cfg["applications"],
-                lambda k, v: {
-                    # "appProfileId": 1,
-                    **v,
-                },
-            )
+            self.sync_contracts("/applications", self.cfg["applications"])
             del self.cfg["applications"]
 
-            self.sync_contracts(
-                "/indexerProxy",
-                self.cfg["indexerProxy"],
-                lambda k, v: {
-                    "implementation": v["name"],
-                    **v,
-                },
-            )
+            self.sync_contracts("/indexerProxy", self.cfg["indexerProxy"])
             del self.cfg["indexerProxy"]
 
         if self.type in ("sonarr", "radarr", "lidarr"):
@@ -580,12 +535,18 @@ class ArrSyncEngine:
                 )
             del self.cfg["qualityDefinition"]
 
+            # self.sync_contracts(
+            #     "/metadata",
+            #     self.cfg["metadata"],
+            #     only_update=True,
+            # )
+            # del self.cfg["metadata"]
+
         if self.type in ("sonarr", "radarr"):
             self.sync_resources(
                 "/customformat",
                 self.cfg["customFormat"],
-                lambda k, v: v,
-                True,
+                allow_error=True,
             )
             del self.cfg["customFormat"]
 
@@ -612,18 +573,83 @@ class ArrSyncEngine:
                     **v,
                     "formatItems": gen_formats_items(v),
                 },
-                True,
+                allow_error=True,
             )
             del self.cfg["qualityProfile"]
 
-        if self.type in ("sonarr", "radarr", "lidarr"):
-            self.sync_rootfolders()
+        if self.type in ("sonarr", "radarr") and self.cfg["rootFolder"] is not None:
+            cfg = {v: {"path": v} for v in self.cfg.get("rootFolder", [])}
+
+            path = "/rootFolder"
+
+            existing = to_dict(self.get(path), "path")
+            for name, data in existing.items():
+                if name not in cfg.keys():
+                    self.delete(f"{path}/{data['id']}")
+
+            for name, data in cfg.items():
+                if name not in existing.keys():
+                    self.post(path, data)
             del self.cfg["rootFolder"]
+
+        if self.type == "lidarr":
+            # cfg = {
+            #     v["path"]: {"name": k, **v}
+            #     for k, v in self.cfg.get("rootFolder", {}).items()
+            # }
+
+            quality_profile_map = {
+                v["name"]: v["id"]  #
+                for v in self.get("/qualityprofile")
+            }
+            metadata_profile_map = {
+                v["name"]: v["id"]  #
+                for v in self.get("/metadataprofile")
+            }
+
+            self.sync_resources(
+                "/rootFolder",
+                self.cfg["rootFolder"],
+                lambda k, v: {
+                    **v,
+                    # "name": k,
+                    "defaultTags": [
+                        self.tag_map[t.lower()] if isinstance(t, str) else t
+                        for t in v.get("tags", [])
+                    ],
+                    "defaultQualityProfileId": quality_profile_map[
+                        v["defaultQualityProfileId"]
+                    ],
+                    "defaultMetadataProfileId": metadata_profile_map[
+                        v["defaultMetadataProfileId"]
+                    ],
+                },
+                # key="path",
+            )
+            del self.cfg["rootFolder"]
+
+            # manual: config/metadataProvider
+
+            # TODO:: custom formats and quality profiles for lidarr
+
+        self.sync_contracts("/notification", self.cfg["notification"])
+        del self.cfg["notification"]
+
+        self.sync_contracts("/importlist", self.cfg["importList"])
+        del self.cfg["importList"]
+
+        # /importlist can be both post to to update setting
+        # and put to to create a new resource, bruh
+
+        # TODO: /autoTagging
 
         del self.cfg["declarr"]
         # pp(self.cfg)
         # TODO: explicitly set paths
         #  eg /config/ui, /config/host
+
+        # TODO: only use heuristic for /config/*
+        # self.recursive_sync(self.cfg["config"], resource="/config")
         self.recursive_sync(self.cfg)
 
         for path, body in self.deferred_deletes:

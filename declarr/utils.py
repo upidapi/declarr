@@ -19,6 +19,13 @@ def to_dict(l: list, key: AccessOverload):
     return res
 
 
+def del_keys(d: dict, keys: list):
+    for k in keys:
+        d.pop(k, None)
+
+    return d
+
+
 def unique(l: list):
     return list(set(l))
 

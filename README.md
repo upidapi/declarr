@@ -165,6 +165,9 @@ declarr starts, otherwise the api request errors.
     For details on how this works, see examples in the Dictionarry-Hub Database
     repository: https://github.com/Dictionarry-Hub/Database
 
+- /importList
+  - sonarr, prowlarr, lidarr
+
 - /appProfile
   - prowlarr
 - /indexerProxy
@@ -172,12 +175,29 @@ declarr starts, otherwise the api request errors.
 - /applications
   - prowlarr
 
+- /notification
+  - "connect" in the ui
+
+All of these are pluralised to prevent collisions with the config keys that are
+simply "put".
+
+Declarr supports all config options (that i know of) except for
+
+- /autoTagging
+- /releaseProfile and /delayProfile
+- /customFormats, /qualityProfiles, /metadataProfile, /metadata for lidarr
+
 The `"fields": {"name": a, "value": b}[]` field that exists on eg
 `/downloadClient`, is expanded from a dict. 
 
-Other simple fields, such as `/config/ui and` `/config/host`, are handled via a
-heuristic. If a field contains any subfields that are not dictionaries or lists,
-it is treated as a simple POST. The current values are merged and then reposted.
+If a top level field is not set, then declarr fully ignores it. However setting
+it to eg an empty set, then declarr will delete all resources not explicitly
+defined. 
+
+The fields under `/config`, such as `/config/ui and` `/config/host`, are handled
+via a heuristic. If a field contains any subfields that are not dictionaries or
+lists, it is treated as a simple POST. The current values are merged and then
+reposted.
 
 ### jellyseerr
 Unless explicitly stated otherwise, configuration keys mirror Jellyseerr’s
@@ -199,9 +219,12 @@ Ie declarr cant configure it from a separate process.
 Make it possible to do the reverse, ie pull the current state in *arr and
 jellyseerr into a config file. 
 
+Use the scheme endpoint eg `https://sonarr.upidapi.dev/api/v3/indexer/schema` to
+simplify declarr
+
 ## dev stuff
 ```nu
-nix run .#declarr ./config.json
+nix run .#declarr -- --sync ./config.json
 
 (cat /etc/systemd/system/declarr.service 
   | grep ExecStart= | split row "=" | get 1 | cat $in 
