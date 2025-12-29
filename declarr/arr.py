@@ -39,8 +39,6 @@ class FormatCompiler:
         self.update_data()
 
     def update_data(self):
-        return  # FIXME: remove once done
-
         git_repo = self.cfg["declarr"].get("formatDbRepo", "")
         git_branch = self.cfg["declarr"].get("formatDbBranch", "stable")
 
