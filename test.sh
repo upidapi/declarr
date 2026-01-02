@@ -69,8 +69,8 @@ main() {
     systemctl stop sonarr radarr lidarr prowlarr jellyseerr
 
     # backup
-    clear_folders
-    # revert
+    # clear_folders
+    revert
 
     echo "Starting core services..."
     systemctl start sonarr radarr lidarr prowlarr jellyseerr
