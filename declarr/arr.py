@@ -307,19 +307,19 @@ class ArrSyncEngine:
         )
 
         for name, dat in cfg.items():
-            if name in existing:
-                try:
-                    # TODO: try catch?
+            try:
+                if name in existing:
                     self.put(
                         f"{path}/{existing[name]['id']}",
                         {**existing[name], **dat},
                     )
-                except Exception as e:
-                    if not allow_error:
-                        raise e
-                    log.error(e)
-            else:
-                self.post(path, dat)
+                else:
+                    self.post(path, dat)
+
+            except Exception as e:
+                if not allow_error:
+                    raise e
+                log.error(e)
 
     # format_fields
     # def serialise_fields(self, f):
@@ -523,7 +523,7 @@ class ArrSyncEngine:
                     return id if id in avalible_ids else default_id
 
                 return profile_map[id]
-    
+
             # TODO: make it possible to set /indexer for sonarr, radarr, lidarr
             self.sync_contracts(
                 "/indexer",
