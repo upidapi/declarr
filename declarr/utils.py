@@ -26,12 +26,35 @@ def del_keys(d: dict, keys: list):
     return d
 
 
+def cat_req(path, existing, cfg):
+    delete = {}
+    update = {}
+    create = {}
+    for name, data in existing.items():
+        if name not in cfg.keys():  # and not only_update:
+            delete[name] = (f"{path}/{data['id']}", existing)
+
+    for name, data in cfg.items():
+        if name in existing.keys():
+            update[name] = (f"{path}/{existing[name]['id']}", data)
+            # self.put(f"{path}/{existing[name]['id']}", data)
+        else:
+            create[name] = (path, data)
+            # self.post(path, data)
+    return delete, update, create
+
+
 def unique(l: list):
     return list(set(l))
 
 
-def map_values(obj: dict, f):
-    return {k: f(k, v) for k, v in obj.items()}
+def map_values(obj: dict, *f):
+    def func(fs, k, v):
+        if not fs:
+            return v
+        return func(fs[1:], k, fs[0](k, v))
+
+    return {k: func(f, k, v) for k, v in obj.items()}
 
 
 def trace(obj):
