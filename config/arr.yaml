@@ -9,6 +9,91 @@ declarr:
     - $.*.indexer.*.fields.password
     - $.*.downloadClient.*.fields.password
   stateDir: /var/lib/declarr
+lidarr:
+  declarr:
+    type: lidarr
+    url: 'http://localhost:8502'
+
+  config:
+    host:
+      analyticsEnabled: false
+      apiKey: /run/secrets/lidarr/api-key_declarr
+      authenticationMethod: forms
+      authenticationRequired: enabled
+      backupInterval: 7
+      backupRetention: 28
+      bindAddress: '*'
+      branch: main
+      consoleLogLevel: ''
+      instanceName: Lidarr
+      logLevel: debug
+      logSizeLimit: 1
+      password: /run/secrets/lidarr/password_declarr
+      passwordConfirmation: /run/secrets/lidarr/password_declarr
+      port: 8502
+      proxyEnabled: false
+      sslCertPassword: ''
+      sslCertPath: ''
+      updateScriptPath: ''
+      urlBase: ''
+      username: admin
+    mediamanagement:
+      autoUnmonitorPreviouslyDownloadedEpisodes: false
+      chmodFolder: '755'
+      chownGroup: ''
+      copyUsingHardlinks: true
+      createEmptySeriesFolders: true
+      deleteEmptyFolders: false
+      downloadPropersAndRepacks: preferAndUpgrade
+      enableMediaInfo: true
+      episodeTitleRequired: always
+      extraFileExtensions: srt
+      fileDate: none
+      importExtraFiles: false
+      minimumFreeSpaceWhenImporting: 100
+      recycleBin: ''
+      recycleBinCleanupDays: 7
+      rescanAfterRefresh: always
+      scriptImportPath: ''
+      setPermissionsLinux: false
+      skipFreeSpaceCheckWhenImporting: false
+      useScriptImport: false
+    naming:
+      artistFolderFormat: '{Artist Name}'
+      colonReplacementFormat: 4
+      includeAlbumTitle: false
+      includeArtistName: false
+      includeQuality: false
+      multiDiscTrackFormat: >-
+        {Album Title} ({Release Year})/{Medium Format} {medium:00}/{Artist Name}
+        - {Album Title} - {track:00} - {Track Title}
+      renameTracks: false
+      replaceIllegalCharacters: true
+      replaceSpaces: false
+      standardTrackFormat: >-
+        {Album Title} ({Release Year})/{Artist Name} - {Album Title} -
+        {track:00} - {Track Title}
+    ui:
+      firstDayOfWeek: 1
+      theme: dark
+      timeFormat: 'HH:mm'
+  downloadClient:
+    qBittorrent:
+      fields:
+        host: 192.168.15.1
+        password: /run/secrets/qbit/password_declarr
+        port: 8509
+        sequentialOrder: true
+        username: admin
+      implementation: QBittorrent
+  rootFolder:
+    main:
+      defaultMetadataProfileId: Standard
+      defaultMonitorOption: all
+      defaultNewItemMonitorOption: all
+      defaultQualityProfileId: Standard
+      defaultTags: []
+      path: /raid/media/music
 prowlarr:
   appProfile:
     Automatic:
@@ -27,14 +112,25 @@ prowlarr:
       enableRss: true
       minimumSeeders: 1
   applications:
+    Lidarr:
+      fields:
+        apiKey: /run/secrets/lidarr/api-key_declarr
+        baseUrl: 'http://localhost:8502'
+        prowlarrUrl: 'http://localhost:8505'
+      implementation: Lidarr
+      syncLevel: fullSync
     Radarr:
       fields:
         apiKey: /run/secrets/radarr/api-key_declarr
+        baseUrl: 'http://localhost:8500'
+        prowlarrUrl: 'http://localhost:8505'
       implementation: Radarr
       syncLevel: fullSync
     Sonarr:
       fields:
         apiKey: /run/secrets/sonarr/api-key_declarr
+        baseUrl: 'http://localhost:8501'
+        prowlarrUrl: 'http://localhost:8505'
       implementation: Sonarr
       syncLevel: fullSync
   config:
@@ -53,7 +149,7 @@ prowlarr:
       logSizeLimit: 1
       password: /run/secrets/prowlarr/password_declarr
       passwordConfirmation: /run/secrets/prowlarr/password_declarr
-      port: 9696
+      port: 8505
       proxyEnabled: false
       sslCertPassword: ''
       sslCertPath: ''
@@ -66,40 +162,34 @@ prowlarr:
       timeFormat: 'HH:mm'
   declarr:
     type: prowlarr
-    url: 'http://localhost:9696'
+    url: 'http://localhost:8505'
   downloadClient:
     qBittorrent:
       fields:
         host: 192.168.15.1
         password: /run/secrets/qbit/password_declarr
-        port: 8080
+        port: 8509
         sequentialOrder: true
         username: admin
       implementation: QBittorrent
   indexer:
-    1337x:
-      appProfileId: Standard
-      fields:
-        definitionFile: 1337x
-        downloadlink: 1
-        downloadlink2: 0
-        sort: 2
-        type: 1
-      implementation: Cardigann
-      priority: 25
-      tags:
-        - FlareSolverr
     LimeTorrents:
+      appProfileId: Interactive Search
       fields:
         definitionFile: limetorrents
         downloadlink: 1
         downloadlink2: 0
+        torrentBaseSettings.seedRatio: 10
       implementation: Cardigann
+      indexerName: LimeTorrents
       priority: 30
     The Pirate Bay:
+      appProfileId: Interactive Search
       fields:
         definitionFile: thepiratebay
+        torrentBaseSettings.seedRatio: 10
       implementation: Cardigann
+      indexerName: The Pirate Bay
       priority: 30
     TorrentLeech:
       appProfileId: Interactive Search
@@ -109,6 +199,7 @@ prowlarr:
         password: /run/secrets/prowlarr/indexers/torrentLeech/password_declarr
         username: upidapi
       implementation: Cardigann
+      indexerName: TorrentLeech
       priority: 25
       tags:
         - FlareSolverr
@@ -120,19 +211,24 @@ prowlarr:
         password: /run/secrets/prowlarr/indexers/torrentLeech/password_declarr
         username: upidapi
       implementation: Cardigann
+      indexerName: TorrentLeech
       priority: 20
       tags:
         - FlareSolverr
     YTS:
+      appProfileId: Interactive Search
       fields:
         definitionFile: yts
+        torrentBaseSettings.seedRatio: 10
       implementation: Cardigann
+      indexerName: YTS
       priority: 30
   indexerProxy:
     FlareSolverr:
       fields:
-        host: 'http://localhost:8191/'
+        host: 'http://localhost:8506/'
         requestTimeout: 60
+      implementation: FlareSolverr
       tags:
         - FlareSolverr
 radarr:
@@ -152,7 +248,7 @@ radarr:
       logSizeLimit: 1
       password: /run/secrets/radarr/password_declarr
       passwordConfirmation: /run/secrets/radarr/password_declarr
-      port: 7878
+      port: 8500
       proxyEnabled: false
       sslCertPassword: ''
       sslCertPath: ''
@@ -192,13 +288,13 @@ radarr:
   customFormat: {}
   declarr:
     type: radarr
-    url: 'http://localhost:7878'
+    url: 'http://localhost:8500'
   downloadClient:
     qBittorrent:
       fields:
         host: 192.168.15.1
         password: /run/secrets/qbit/password_declarr
-        port: 8080
+        port: 8509
         sequentialOrder: true
         username: admin
       implementation: QBittorrent
@@ -283,7 +379,7 @@ sonarr:
       logSizeLimit: 1
       password: /run/secrets/sonarr/password_declarr
       passwordConfirmation: /run/secrets/sonarr/password_declarr
-      port: 8989
+      port: 8501
       proxyEnabled: false
       sslCertPassword: ''
       sslCertPath: ''
@@ -334,16 +430,22 @@ sonarr:
   customFormat: {}
   declarr:
     type: sonarr
-    url: 'http://localhost:8989'
+    url: 'http://localhost:8501'
   downloadClient:
     qBittorrent:
       fields:
         host: 192.168.15.1
         password: /run/secrets/qbit/password_declarr
-        port: 8080
+        port: 8509
         sequentialOrder: true
         username: admin
       implementation: QBittorrent
+  notification:
+    discord:
+      fields:
+        webHookUrl: >-
+          https://discord.com/api/webhooks/1453131389921919228/QdTSKjeeo6TlVlwxgRziL8ZkOd6OcIRtaeqCjGjn_dZ3VOMeXYjYZglNrt_6mwNNyk6V
+      implementation: Discord
   qualityDefinition:
     Bluray-1080p:
       maxSize: 1000

@@ -1,37 +1,37 @@
 jellyseerr:
   declarr:
-    port: 8097
+    port: 8507
     resolvePaths:
-      - "$.main.apiKey"
-      - "$.jellyfin.password"
-      - "$.radarr[*].apiKey"
-      - "$.sonarr[*].apiKey"
-    stateDir: "/var/lib/jellyseerr"
-    type: "jellyseerr"
-    url: "http://localhost:8097"
+      - $.main.apiKey
+      - $.jellyfin.password
+      - '$.radarr[*].apiKey'
+      - '$.sonarr[*].apiKey'
+    stateDir: /var/lib/jellyseerr
+    type: jellyseerr
+    url: 'http://localhost:8507'
   jellyfin:
-    apiKey: "/run/secrets/jellyfin/jellyseerr-api-key"
-    email: "test@test.com"
-    externalHostname: "https://jellyfin.upidapi.dev"
-    ip: "127.0.0.1"
-    jellyfinForgotPasswordUrl: ""
+    apiKey: /run/secrets/jellyfin/jellyseerr-api-key
+    email: test@test.com
+    externalHostname: 'https://jellyfin.upidapi.dev'
+    ip: 127.0.0.1
+    jellyfinForgotPasswordUrl: ''
     libraries:
       - enabled: true
-        name: "Movies"
-        type: "movie"
+        name: Movies
+        type: movie
       - enabled: true
-        name: "Shows"
-        type: "show"
-    name: "upinix-laptop"
-    password: "/run/secrets/jellyfin/users/admin/password_jellyseerr"
-    port: 8096
-    urlBase: ""
+        name: Shows
+        type: show
+    name: upinix-laptop
+    password: /run/secrets/jellyfin/users/admin/password_jellyseerr
+    port: 8508
+    urlBase: ''
     useSsl: false
-    username: "admin"
+    username: admin
   main:
-    apiKey: "/run/secrets/jellyseerr/api-key"
-    applicationTitle: "Jellyseerr"
-    applicationUrl: ""
+    apiKey: /run/secrets/jellyseerr/api-key
+    applicationTitle: Jellyseerr
+    applicationUrl: ''
     cacheImages: false
     defaultPermissions:
       autoApprove: true
@@ -42,49 +42,49 @@ jellyseerr:
     defaultQuotas:
       movie: {}
       tv: {}
-    discoverRegion: ""
+    discoverRegion: ''
     enableSpecialEpisodes: false
     hideAvailable: false
     localLogin: true
-    locale: "en"
+    locale: en
     mediaServerLogin: true
     mediaServerType: 2
     newPlexLogin: true
-    originalLanguage: ""
+    originalLanguage: ''
     partialRequestsEnabled: true
-    streamingRegion: ""
+    streamingRegion: ''
   public:
     initialized: true
   radarr:
-    - activeDirectory: "/raid/media/movies"
-      activeProfileName: "1080p Balanced"
-      apiKey: "/run/secrets/radarr/api-key_jellyseerr"
-      externalUrl: "https://radarr.upidapi.dev"
-      hostname: "127.0.0.1"
+    - activeDirectory: /raid/media/movies
+      activeProfileName: 1080p Balanced
+      apiKey: /run/secrets/radarr/api-key_jellyseerr
+      externalUrl: 'https://radarr.upidapi.dev'
+      hostname: 127.0.0.1
       id: 0
       is4k: false
       isDefault: true
-      minimumAvailability: "released"
-      name: "radarr"
-      port: 7878
+      minimumAvailability: inCinemas
+      name: radarr
+      port: 8500
       preventSearch: false
       syncEnabled: true
       tagRequests: false
       tags: []
       useSsl: false
   sonarr:
-    - activeDirectory: "/raid/media/tv"
-      activeProfileName: "1080p Balanced"
+    - activeDirectory: /raid/media/tv
+      activeProfileName: 1080p Balanced
       animeTags: []
-      apiKey: "/run/secrets/sonarr/api-key_jellyseerr"
+      apiKey: /run/secrets/sonarr/api-key_jellyseerr
       enableSeasonFolders: true
-      externalUrl: "https://sonarr.upidapi.dev"
-      hostname: "127.0.0.1"
+      externalUrl: 'https://sonarr.upidapi.dev'
+      hostname: 127.0.0.1
       id: 0
       is4k: false
       isDefault: true
-      name: "sonarr"
-      port: 8989
+      name: sonarr
+      port: 8501
       preventSearch: false
       syncEnabled: true
       tagRequests: false
