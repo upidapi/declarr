@@ -4,14 +4,14 @@
 }: let
   profilarr = python3.pkgs.buildPythonPackage rec {
     pname = "profilarr";
-    version = "1.1.3";
+    version = "v1.1.4";
     pyproject = true;
 
     src = fetchFromGitHub {
       owner = "Dictionarry-Hub";
       repo = "profilarr";
-      rev = "main";
-      hash = "sha256-sTQDu8RR+x09BMki/+/PiSy56Inwfu4b+/h81S//Ecs=";
+      rev = version;
+      hash = "sha256-7aiLj87huvSYAuIxcMhudWDAGV3F9QhH1VbLEvB8UyQ=";
     };
 
     unpackPhase = ''
@@ -61,7 +61,7 @@
 in
   python3.pkgs.buildPythonApplication {
     pname = "declarr";
-    version = "0.8.0b1";
+    version = "0.1.0";
     pyproject = true;
 
     src = ../.;
