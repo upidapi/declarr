@@ -62,6 +62,26 @@ Built to be used with nix, but works fully without it.
 The *arr stack is configured under services.declarr, jellyseerr is configured 
 under services.jellyseerr.config
 
+```nix
+imports = [
+  inputs.declarr.nixosModules.default
+];
+
+config.services = {
+  declarr = {
+    enable = true;
+    # ...
+  };
+  # declarr extends the existing module
+  jellyseerr = {
+    enable = true;
+    config = {
+      # ...
+    };
+  };
+}
+```
+
 
 ## TODO
 Fell free to submit issues/pr(s) if you find some issue, or implement one of
