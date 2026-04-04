@@ -11,9 +11,9 @@
     mkIf
     ;
 
-  cfg = config.services.jellyseerr;
+  cfg = config.services.seerr;
 in {
-  options.services.jellyseerr = {
+  options.services.seerr = {
     config = mkOption {
       type = types.attrs;
       default = {};
@@ -61,7 +61,7 @@ in {
     };
   in
     mkIf cfg.enable {
-      systemd.services.jellyseerr = {
+      systemd.services.seerr = {
         wants = ["declarr.service"];
         after = ["jellyfin.service" "sonarr.service" "radarr.service" "declarr.service"];
         serviceConfig = {
