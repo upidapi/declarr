@@ -203,7 +203,7 @@ def run_jellyseerr(cfg):
     
     log.debug("Starting jellyseerr")
     proc = subprocess.Popen(
-        ["jellyseerr"],
+        ["seerr"],
         stdout=None,
         stderr=None,
         env=env,

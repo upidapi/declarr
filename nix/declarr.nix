@@ -47,7 +47,7 @@
         regex
       ]
       ++ (with pkgs; [
-        pkgs.jellyseerr
+        pkgs.seerr
       ]);
 
     pythonImportsCheck = [
