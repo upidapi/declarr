@@ -67,6 +67,7 @@ def read_file(path: str):
         return f.read()
 
 
+# first arg has prio
 def deep_merge(*args):
     source, dest, *rem = args
     res = dict(dest)
@@ -79,6 +80,21 @@ def deep_merge(*args):
     if rem:
         return deep_merge(res, *rem)
     return res
+
+def deep_compare(a, b):
+    if type(a) != type(b):
+        return False
+    
+    if isinstance(a, dict):
+        return len(a) == len(b) and all(k in b and deep_compare(a[k], b[k]) for k in a)
+    
+    if isinstance(a, (list, tuple)):
+        return len(a) == len(b) and all(deep_compare(x, y) for x, y in zip(a, b))
+    
+    if isinstance(a, set):
+        return a == b
+    
+    return a == b
 
 
 def add_defaults(obj, ref):

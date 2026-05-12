@@ -1,3 +1,4 @@
+from declarr.jellyfin import JellyfinSyncEngine
 import sys
 import yaml
 import argparse
@@ -103,11 +104,21 @@ def main():
                 format_compiler = FormatCompiler(cfgs)
 
             if should_run:
-                print("cant run *arr apps")
+                print(f"Cant run {cfg["declarr"]["type"]}")
                 exit(1)
 
             if args.sync:
                 ArrSyncEngine(cfg, format_compiler).sync()
+
+        elif cfg["declarr"]["type"] == "jellyfin":
+            if should_run:
+                print(f"Cant run {cfg["declarr"]["type"]}")
+                exit(1)
+
+            if args.sync:
+                JellyfinSyncEngine(cfg).sync()
+                # ArrSyncEngine(cfg, format_compiler).sync()
+
 
         elif cfg["declarr"]["type"] == "jellyseerr":
             if args.sync:
