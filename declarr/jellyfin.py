@@ -7,7 +7,7 @@ import time
 import yaml
 from declarr.utils import deep_compare
 from json import JSONDecodeError
-from declarr.utils import deep_merge, to_dict, prettify
+from declarr.utils import deep_merge, to_dict, prettify, pp
 import json
 import logging
 
@@ -109,7 +109,9 @@ class JellyfinSyncEngine:
         new_repos = sorted(list(repo_map.values()), key=lambda x: x["Name"])
         current_repos = sorted(current_repos, key=lambda x: x["Name"])
 
-        if deep_compare(new_repos, current_repos):
+        # pp(current_repos)
+        # pp(new_repos)
+        if not deep_compare(new_repos, current_repos):
             # log.info("Updating PluginRepositories configuration")
             sys_config["PluginRepositories"] = new_repos
             self.post("/System/Configuration", sys_config)
@@ -154,11 +156,18 @@ class JellyfinSyncEngine:
 
             # streamyfin uses custom api "fun"
             if name == "Streamyfin":
+                # pp({"Value": yaml.safe_dump(cfg)})
+                # pp(yaml.safe_load(self.get("/streamyfin/config/yaml")["Value"]))
                 cfg = deep_merge(
                     cfg,
-                    self.get("/streamyfin/config/yaml"),
+                    yaml.safe_load(self.get("/streamyfin/config/yaml")["Value"]),
                 )
-                self.post("/streamyfin/config/yaml", {"value": yaml.safe_dump(cfg)})
+                res = self.post(
+                    "/streamyfin/config/yaml", {"Value": yaml.safe_dump(cfg)}
+                )
+                if res["Error"]:
+                    log.error(f"Streamyfin: {res['Message']}")
+
                 continue
 
             plugin_id = cur_cfg["Id"]
@@ -171,8 +180,15 @@ class JellyfinSyncEngine:
             )
 
     def sync(self):
+        pp(self.cfg)
 
-        self.get("/System/Ping")
+        while 1:
+            try:
+                self.get("/System/Ping")
+            except Exception:
+                pass
+            time.sleep(1)
+            break
 
         self.sync_repositories()
         self.install_plugins()
