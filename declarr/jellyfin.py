@@ -180,7 +180,7 @@ class JellyfinSyncEngine:
             )
 
     def sync(self):
-        pp(self.cfg)
+        log.debug(prettify(self.cfg))
 
         while 1:
             try:

@@ -481,10 +481,10 @@ myArrService:
 ```nu
 nix run .#declarr -- --sync ./config.json
 
-(cat /etc/systemd/system/declarr.service 
+(systemctl cat declarr 
   | grep ExecStart= | split row "=" | get 1 | cat $in 
   | split row " " | get 2 | cat $in
-  | save config.json -f)
+  | jq | save config.json -f)
 
 cat /etc/systemd/system/jellyseerr.service 
 ```
