@@ -17,6 +17,16 @@ jellyfin:
     url: https://jellyfin.something.dev
     apiKey: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
+  libraries:
+    Shows:
+      collectionType: tvshows
+      paths:
+        - /raid/media/tv
+    Movies:
+      collectionType: movies
+      paths:
+        - /raid/media/movies
+
   plugins:
     Studio Images:
       RepositoryUrl: "https://raw.githubusercontent.com/jellyfin/emby-artwork/master/studios"

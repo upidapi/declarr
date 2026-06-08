@@ -3,6 +3,7 @@ Yeah, there's no docs for this. Look at my config for examples. Made because
 jellarr was kina ass at plugins. Only configs plugins, nothing else.
 """
 
+from declarr.utils import del_keys
 import time
 import yaml
 from declarr.utils import deep_compare
@@ -20,6 +21,12 @@ log = logging.getLogger(__name__)
 
 def as_uuid(s: str):
     return f"{s[0:8]}-{s[8:12]}-{s[12:16]}-{s[16:20]}-{s[20:32]}"
+
+
+def pascal_keys(d):
+    if isinstance(d, dict):
+        return {k[0].upper() + k[1:]: pascal_keys(v) for k, v in d.items()}
+    return [pascal_keys(x) for x in d] if isinstance(d, list) else d
 
 
 class JellyfinSyncEngine:
@@ -42,7 +49,7 @@ class JellyfinSyncEngine:
 
         # self.deferred_deletes = []
 
-    def _base_req(self, name, f, path: str, body):
+    def _base_req(self, name, f, path: str, body=None, params=None):
         body = {} if body is None else body
 
         if log.isEnabledFor(logging.DEBUG):
@@ -50,7 +57,7 @@ class JellyfinSyncEngine:
         else:
             log.info(f"{name} {self.url}{path}")
 
-        res = f(self.url + path, json=body)
+        res = f(self.url + path, json=body, params=params)
         log.debug(f"=> {prettify(res.text)}")
 
         if res.status_code < 300:
@@ -69,20 +76,92 @@ class JellyfinSyncEngine:
             f": {res.status_code}"
         )
 
-    def get(self, path: str, body=None):
-        return self._base_req("get ", self.r.get, path, body)
+    def get(self, path: str, body=None, params=None):
+        return self._base_req("get ", self.r.get, path, body, params)
 
-    def post(self, path: str, body=None):
-        return self._base_req("post", self.r.post, path, body)
+    def post(self, path: str, body=None, params=None):
+        return self._base_req("post", self.r.post, path, body, params)
 
-    def delete(self, path: str, body=None):
-        return self._base_req("del ", self.r.delete, path, body)
+    def delete(self, path: str, body=None, params=None):
+        return self._base_req("del ", self.r.delete, path, body, params)
 
     # def deferr_delete(self, path: str, body=None):
     #     self.deferred_deletes.append([path, body])
 
-    def put(self, path: str, body=None):
-        return self._base_req("put ", self.r.put, path, body)
+    def put(self, path: str, body=None, params=None):
+        return self._base_req("put ", self.r.put, path, body, params)
+
+    def sync_libraries(self):
+        desired_libs = self.cfg.get("libraries", {})
+        if not desired_libs:
+            return
+
+        current_folders = self.get("/Library/VirtualFolders")
+        current_map = to_dict("Name", current_folders)
+        # {f["Name"]: f for f in current_folders}
+
+        for name, lib_cfg in desired_libs.items():
+            if not lib_cfg:
+                continue
+
+            col_type = lib_cfg.get("collectionType", "")
+            opts = pascal_keys(lib_cfg.get("libraryOptions", {}))
+
+            desired_paths = [
+                p["Path"] for p in opts.get("PathInfos", []) if "Path" in p
+            ]
+            if not desired_paths and "paths" in lib_cfg:
+                desired_paths = lib_cfg["paths"]
+
+            if name not in current_map:
+                self.post(
+                    "/Library/VirtualFolders",
+                    body=opts,
+                    params={
+                        "name": name,
+                        "collectionType": col_type,
+                        "refreshLibrary": "true",
+                    },
+                )
+                for path in desired_paths:
+                    self.post(
+                        "/Library/VirtualFolders/Paths",
+                        body={"Name": name, "Path": path},
+                        params={"refreshLibrary": "true"},
+                    )
+            else:
+                cur = current_map[name]
+                lib_id = cur["ItemId"]
+                cur_paths = cur.get("Locations", [])
+
+                for path in desired_paths:
+                    if path not in cur_paths:
+                        self.post(
+                            "/Library/VirtualFolders/Paths",
+                            body={"Name": name, "Path": path},
+                            params={"refreshLibrary": "true"},
+                        )
+                for path in cur_paths:
+                    if path not in desired_paths:
+                        self.delete(
+                            "/Library/VirtualFolders/Paths",
+                            params={
+                                "name": name,
+                                "path": path,
+                                "refreshLibrary": "true",
+                            },
+                        )
+
+                cur_opts = cur.get("LibraryOptions", {})
+                cur_cmp = del_keys(cur_opts, ["PathInfos"])
+                des_cmp = del_keys(opts, ["PathInfos"])
+
+                if des_cmp and not deep_compare(des_cmp, cur_cmp):
+                    merged_opts = deep_merge(opts, cur_opts)
+                    self.post(
+                        "/Library/VirtualFolders/LibraryOptions",
+                        body={"Id": lib_id, "LibraryOptions": merged_opts},
+                    )
 
     def sync_repositories(self):
         desired_repos = self.cfg.get("pluginRepositories", {})
@@ -206,3 +285,4 @@ class JellyfinSyncEngine:
                 time.sleep(1)
 
         self.sync_plugins()
+        self.sync_libraries()
