@@ -263,10 +263,16 @@ class JellyfinSyncEngine:
         while 1:
             try:
                 self.get("/System/Ping")
+                break
             except Exception:
-                pass
-            time.sleep(1)
-            break
+                time.sleep(1)
+        # while 1:
+        #     try:
+        #         self.get("/System/Configuration")
+        #     except Exception:
+        #         pass
+        #     time.sleep(1)
+        #     break
 
         self.sync_repositories()
         self.install_plugins()
