@@ -4,7 +4,8 @@ prowlarr, jellyseerr)
 
 > [!CAUTION]
 > Lidarr support is experimental, really new and not really tested. Expect
-> buggs, and some missing features.
+> buggs, and some missing features. Underdeveloped because I don't use it
+> myself, but I'm open to prs.
 
 The goal of this repository is to provide a relatively simple syncing engine
 that does as much as possible with as little code as possible. It is designed to
@@ -13,10 +14,11 @@ configuration readable. Advanced configuration validation (for example,
 Buildarr-style validation) is explicitly out of scope.
 
 > [!WARNING]
-> This project is a relatively new project. I have been dogfooding it for a
-> month or so, but beware of buggs. Backup your existing configuration. Declarr
-> will delete any config that is not defined in declarr's conifg. I reserve the
-> right for breaking changes.
+> This is a relatively new project. I have been dogfooding it for a couple
+> months or so, and I've not experienced any significant issues, but nonetheless
+> beware of buggs. Backup your existing configuration. Declarr will delete any
+> config that is not defined in declarr's conifg. I reserve the right for
+> breaking changes.
 
 ## Inspiration / similar projects
 Buildarr
