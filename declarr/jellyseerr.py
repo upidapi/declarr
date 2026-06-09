@@ -200,7 +200,7 @@ def run_jellyseerr(cfg):
     env = os.environ.copy()
     env["CONFIG_DIRECTORY"] = cfg["declarr"]["stateDir"]
     env["PORT"] = str(cfg["declarr"]["port"])
-    
+
     log.debug("Starting jellyseerr")
     proc = subprocess.Popen(
         ["seerr"],

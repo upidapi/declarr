@@ -102,7 +102,7 @@ class FormatCompiler:
             )
 
             defaults = "{}"
-            pat = ( 
+            pat = (
                 self.data_dir
                 / {
                     "profile": "profiles",
@@ -147,7 +147,6 @@ class FormatCompiler:
             patch("profilarr.importer.strategies.profile.load_yaml", new=load_yaml),
             patch("profilarr.importer.strategies.format.load_yaml", new=load_yaml),
             patch("profilarr.importer.utils.load_yaml", new=load_yaml),
-            
             patch(
                 "profilarr.importer.utils.load_regex_patterns",
                 new=load_regex_patterns,
@@ -159,7 +158,7 @@ class FormatCompiler:
                 "api_key": "bafd0de9bc384a17881f27881a5c5e72",
                 "import_as_unique": False,
             }
-            
+
             compiled = ProfileStrategy(server_cfg).compile(
                 cfg["qualityProfile"].keys(),
             )
@@ -167,7 +166,6 @@ class FormatCompiler:
             compiled["formats"] += FormatStrategy(server_cfg).compile(
                 [] if cfg["customFormat"] is None else cfg["customFormat"].keys(),
             )["formats"]
-
 
         if cfg["customFormat"] is not None:
             cfg["customFormat"] = to_dict(
@@ -179,9 +177,9 @@ class FormatCompiler:
                 compiled["profiles"],
                 "name",
             )
-        
+
         return cfg
-            
+
 
 class ArrSyncEngine:
     def __init__(self, cfg, format_data_source):

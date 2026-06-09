@@ -1,6 +1,5 @@
 import json
 from typing import Callable
-import jsonpath_ng.ext as jsonpath
 
 
 type AccessOverload = Callable[[dict], bool] | str
@@ -81,19 +80,20 @@ def deep_merge(*args):
         return deep_merge(res, *rem)
     return res
 
+
 def deep_compare(a, b):
     if type(a) != type(b):
         return False
-    
+
     if isinstance(a, dict):
         return len(a) == len(b) and all(k in b and deep_compare(a[k], b[k]) for k in a)
-    
+
     if isinstance(a, (list, tuple)):
         return len(a) == len(b) and all(deep_compare(x, y) for x, y in zip(a, b))
-    
+
     if isinstance(a, set):
         return a == b
-    
+
     return a == b
 
 
@@ -129,18 +129,3 @@ def prettify(thing):
 
 def pp(obj):
     print(prettify(obj))
-
-
-def resolve_paths(obj, paths):
-    # print(paths)
-    def func(_, data, field):
-        # print(field)
-        file_path = data[field]
-
-        return read_file(file_path).strip()
-
-    for path in paths:
-        # print([x.value for x in  jsonpath.parse(path).find(obj)])
-        jsonpath.parse(path).update(obj, func)
-
-    return obj

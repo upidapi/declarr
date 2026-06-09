@@ -114,6 +114,48 @@ declarr --sync config.json
 declarr --sync --run jellyseerr config.json
 ```
 
+### secrets
+Secrets can be provided through 2 main ways. 
+
+#### resolvePaths/globalResolvePaths
+Each value that matches any of the globalResolvePaths will be assumed to contain
+a file path, that declarr then reads and replaces it with. resolvePaths works
+the same but is scoped the that service.
+
+#### Env vars
+All values that are prefixed with DECLARR_SECRET_ are resolved as env vars.
+Additionally if they are prefixed with DECLARR_SECRET_FILE_ the value in the env
+var will be resolved to the content of said file.
+
+#### examples
+```json
+{
+    "declarr": {
+        "globalResolvePaths": [
+            "$.*.file_resolve",
+        ],
+    },
+    "test": {
+        "declarr": {
+            "resolvePaths": [
+                "$.scoped_file_resolve"
+            ]
+        },
+        "env_var": "DECLARR_SECRET_APIKEY",
+        "env_var_file_resolve": "DECLARR_SECRET_FILE_APIKEY",
+        "file_resolve": "/run/secrets/api-key"
+        "scoped_file_resolve": "/run/secrets/api-key"
+    }
+}
+```
+
+```bash
+DECLARR_SECRET_APIKEY=123012393 \\
+DECLARR_SECRET_FILE_APIKEY=/run/secrets/api-key \\
+declarr 
+```
+
+
 ### jellyseerr
 Unless explicitly stated otherwise, configuration keys mirror Jellyseerr’s
 config.json format.

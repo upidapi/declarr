@@ -1,12 +1,17 @@
-from declarr.jellyfin import JellyfinSyncEngine
 import sys
 import yaml
 import argparse
 import logging
+import os
+
+import jsonpath_ng.ext as jsonpath
 
 from declarr.arr import ArrSyncEngine, FormatCompiler
 from declarr.jellyseerr import run_jellyseerr, sync_jellyseerr
-from declarr.utils import add_defaults, pp, resolve_paths
+from declarr.utils import add_defaults, pp, read_file, map_values
+from declarr.jellyfin import JellyfinSyncEngine
+
+log = logging.getLogger(__name__)
 
 
 def parse_args():
@@ -54,6 +59,51 @@ def parse_args():
     return args
 
 
+def resolve_paths(obj, paths):
+    # print(paths)
+    def func(_, data, field):
+        # print(field)
+        file_path = data[field]
+
+        try:
+            return read_file(file_path).strip()
+        except Exception:
+            log.critical(
+                f'Could not read file "{file_path}" from resolve path "{path}"'
+            )
+            exit(1)
+
+    for path in paths:
+        # print([x.value for x in  jsonpath.parse(path).find(obj)])
+        jsonpath.parse(path).update(obj, func)
+
+    return obj
+
+
+def resolve_env_vars(cfg):
+    if isinstance(cfg, dict):
+        return map_values(cfg, lambda _, v: resolve_env_vars(v))
+    if isinstance(cfg, list):
+        return [*map(resolve_env_vars, cfg)]
+    if not isinstance(cfg, str):
+        return cfg
+
+    if cfg.startswith("DECLARR_SECRET_"):
+        val = os.getenv(cfg, None)
+        if val is None:
+            log.critical(f'Could not find env var "{cfg}"')
+            exit(1)
+
+        if not cfg.startswith("DECLARR_SECRET_FILE_"):
+            return val
+
+        try:
+            return read_file(val)
+        except Exception:
+            log.critical(f'Could not read file "{val}" from env var "{cfg}"')
+            exit(1)
+
+
 def main():
     args = parse_args()
 
@@ -70,9 +120,6 @@ def main():
         # format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    log = logging.getLogger(__name__)
-
-
     cfgs = yaml.safe_load(open(args.config, "r"))
 
     cfgs = add_defaults(
@@ -81,12 +128,14 @@ def main():
     )
 
     cfgs = resolve_paths(cfgs, cfgs["declarr"]["globalResolvePaths"])
+    cfgs = resolve_env_vars(cfgs)
+
+    print(cfgs)
 
     format_compiler = None
 
     should_run = args.run is not None
     for key, cfg in cfgs.items():
-
         if key == "declarr":
             continue
         if should_run and key != args.run:
@@ -104,7 +153,7 @@ def main():
                 format_compiler = FormatCompiler(cfgs)
 
             if should_run:
-                print(f"Cant run {cfg["declarr"]["type"]}")
+                log.critical(f"Cant run {cfg['declarr']['type']}")
                 exit(1)
 
             if args.sync:
@@ -112,13 +161,12 @@ def main():
 
         elif cfg["declarr"]["type"] == "jellyfin":
             if should_run:
-                print(f"Cant run {cfg["declarr"]["type"]}")
+                log.critical(f"Cant run {cfg['declarr']['type']}")
                 exit(1)
 
             if args.sync:
                 JellyfinSyncEngine(cfg).sync()
                 # ArrSyncEngine(cfg, format_compiler).sync()
-
 
         elif cfg["declarr"]["type"] == "jellyseerr":
             if args.sync:
