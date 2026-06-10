@@ -3,12 +3,16 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "qs"
+name = "declarr"
 version = "1.0"
 dependencies = []
 
 [project.scripts]
 declarr = "declarr.main:main"
+
+[tool.setuptools.packages.find]
+include = ["declarr"]
+namespaces = false
 
 [tool.setuptools]
 packages = ["declarr"]
