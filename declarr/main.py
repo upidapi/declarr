@@ -103,6 +103,8 @@ def resolve_env_vars(cfg):
             log.critical(f'Could not read file "{val}" from env var "{cfg}"')
             exit(1)
 
+    return cfg
+
 
 def main():
     args = parse_args()
@@ -127,10 +129,13 @@ def main():
         {"declarr": {"globalResolvePaths": []}},
     )
 
+    pp(cfgs)
     cfgs = resolve_paths(cfgs, cfgs["declarr"]["globalResolvePaths"])
+    pp(cfgs)
     cfgs = resolve_env_vars(cfgs)
+    pp(cfgs)
 
-    print(cfgs)
+    exit(1)
 
     format_compiler = None
 
