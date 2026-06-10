@@ -129,13 +129,13 @@ def main():
         {"declarr": {"globalResolvePaths": []}},
     )
 
-    pp(cfgs)
+    # pp(cfgs)
     cfgs = resolve_paths(cfgs, cfgs["declarr"]["globalResolvePaths"])
-    pp(cfgs)
+    # pp(cfgs)
     cfgs = resolve_env_vars(cfgs)
-    pp(cfgs)
+    # pp(cfgs)
 
-    exit(1)
+    # exit(1)
 
     format_compiler = None
 
