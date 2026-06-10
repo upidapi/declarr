@@ -14,8 +14,5 @@ declarr = "declarr.main:main"
 include = ["declarr"]
 namespaces = false
 
-[tool.setuptools]
-packages = ["declarr"]
-
 [tool.setuptools.package-data]
 "declarr" = ["data/*"]
