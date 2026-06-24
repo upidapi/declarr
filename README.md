@@ -272,9 +272,9 @@ prowlarr:
 
 ### Examples
 See my personal dotfiles 
-([*arr](https://github.com/upidapi/NixOs/blob/main/modules/nixos/homelab/media/arr.nix), 
-[jellyseerr](https://github.com/upidapi/NixOs/blob/main/modules/nixos/homelab/media/jellyseerr/default.nix))
-for nix usage examples. They are quite well structured,
+([*arr](https://github.com/upidapi/NixOs/blob/main/modules/nixos/homelab/media/declarr.nix), 
+[jellyseerr](https://github.com/upidapi/NixOs/blob/main/modules/nixos/homelab/media/jellyseerr.nix))
+for nix usage examples.
 
 Or look at the example configurations in [arr.yaml](config/arr.yaml)
 [jellyseerr.yaml](config/jellyseerr.yaml). They are generated from my nix config
