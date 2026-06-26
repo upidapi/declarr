@@ -1,5 +1,6 @@
 import sys
 import yaml
+import json
 import argparse
 import logging
 import os
@@ -31,6 +32,20 @@ def parse_args():
         action="store_true",
         help="Enable verbose output (equivalent to --log-level DEBUG).",
     )
+
+    parser.add_argument(
+        "--dump",
+        # action="store_true",
+        help="Dump config",
+    )
+    # parser.add_argument(
+    #     "--url",
+    #     help="Url for dumping config",
+    # )
+    # parser.add_argument(
+    #     "--api-key",
+    #     help="Url for dumping config",
+    # )
 
     parser.add_argument(
         "--sync",
@@ -109,6 +124,17 @@ def resolve_env_vars(cfg):
 def main():
     args = parse_args()
 
+    if args.dump is not None:
+        d = json.loads(args.dump)
+
+        res = {}
+        for k, v in d.items():
+            if v["type"] not in ("sonarr", "radarr", "lidarr", "prowlarr"):
+                log.critical(f"Cant dump {v['type']}")
+                exit(1)
+            
+            res[k] = ArrSyncEngine({}, None).dump()
+
     logging.basicConfig(
         level={
             "debug": logging.DEBUG,
@@ -137,6 +163,7 @@ def main():
 
     # exit(1)
 
+
     format_compiler = None
 
     should_run = args.run is not None
@@ -157,28 +184,27 @@ def main():
             if format_compiler is None:
                 format_compiler = FormatCompiler(cfgs)
 
-            if should_run:
-                log.critical(f"Cant run {cfg['declarr']['type']}")
-                exit(1)
-
             if args.sync:
                 ArrSyncEngine(cfg, format_compiler).sync()
+                continue
 
         elif cfg["declarr"]["type"] == "jellyfin":
-            if should_run:
-                log.critical(f"Cant run {cfg['declarr']['type']}")
-                exit(1)
-
             if args.sync:
                 JellyfinSyncEngine(cfg).sync()
-                # ArrSyncEngine(cfg, format_compiler).sync()
+                continue
 
         elif cfg["declarr"]["type"] == "jellyseerr":
             if args.sync:
                 sync_jellyseerr(cfg)
+                continue
 
             if should_run:
                 run_jellyseerr(cfg)
+                continue
+
+        if should_run:
+            log.critical(f"Cant run {cfg['declarr']['type']}")
+            exit(1)
 
     log.info("Finished to apply configurations")
 
