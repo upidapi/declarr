@@ -1,3 +1,4 @@
+from declarr.utils import deep_unmerge
 from declarr.utils import foldl
 from typing import Callable
 from pathlib import Path
@@ -211,6 +212,7 @@ class ArrSyncEngine:
         self.r.headers.update({"X-Api-Key": api_key})
 
         self.tag_map = {}
+        self.tag_id_map = {}
         self.profile_map = {}
 
         self.deferred_deletes = []
@@ -253,22 +255,28 @@ class ArrSyncEngine:
     def put(self, path: str, body=None):
         return self._base_req("put ", self.r.put, path, body)
 
-    def parse_schema(self, path: str):
-        schemas = to_dict(self.get(path + "/schema"), "implementationName")
-
-    def dump_tags(self):
-        pass
+    # def parse_schema(self, path: str):
+    #     schemas = to_dict(self.get(path + "/schema"), "implementationName")
 
     def dump_resources(
         self,
         path: str,
+        update: Callable[[str, dict], dict] = lambda k, v: v,
         key: str = "name",
     ):
-        return to_dict(self.get(path), key)
+        existing = to_dict(self.get(path), key)
+        existing = map_values(existing, update)
+        existing = map_values(existing, lambda k, v: del_keys(v, ["id"]))
+
+        defaults = self.get(path + "/schema")
+
+        return deep_unmerge(existing, defaults)
 
     def dump_contracts(
         self,
         path: str,
+        update: Callable[[str, dict], dict] = lambda k, v: v,
+        scheme_key=["implementation", "implementation"],
     ):
         existing = map_values(
             to_dict(self.get(path), "name"),
@@ -278,7 +286,10 @@ class ArrSyncEngine:
             },
         )
 
-        schema = map_values(
+        existing = map_values(existing, update)
+        existing = map_values(existing, lambda k, v: del_keys(v, ["id"]))
+
+        defaults = map_values(
             to_dict(self.get(f"{path}/schema"), scheme_key[0]),
             lambda k, v: del_keys(
                 {
@@ -286,14 +297,89 @@ class ArrSyncEngine:
                     "name": k,
                     "enable": True,
                     "fields": {v["name"]: v.get("value", None) for v in v["fields"]},
+                    "tags": [self.tag_id_map[i] for i in v.get("tags", [])],
                 },
                 ["presets"],
             ),
         )
 
-        return existing
+        return deep_unmerge(existing, defaults)
 
-    def get_tags(self):
+    def dump(self):
+        cfg = {}
+
+        self.tag_id_map = {v["id"]: v["label"] for v in self.get("/tag")}
+
+        cfg["downloadClient"] = self.dump_contracts("/downloadClient")
+        if self.type in ("prowlarr",):
+            cfg["appProfile"] = self.dump_contracts("/appProfile")
+
+            app_profile_map = {v["id"]: v["name"] for v in self.get("/appProfile")}
+            cfg["indexer"] = self.dump_contracts(
+                "/indexer",
+                lambda k, v: {
+                    **v,
+                    "appProfileId": app_profile_map[v["appProfileId"]],
+                },
+                scheme_key=["name", "indexerName"],
+            )
+
+            cfg["applications"] = self.dump_contracts("/applications")
+            cfg["indexerProxy"] = self.dump_contracts("/indexerProxy")
+
+        if self.type in ("sonarr", "radarr", "lidarr"):
+            cfg["indexer"] = self.dump_contracts(
+                "/indexer",
+                scheme_key=["name", "indexerName"],
+            )
+            cfg["qualityDefinition"] = del_keys(
+                to_dict(self.get("/qualityDefinition"), "title"),
+                ["id"],
+            )
+
+        if self.type in ("sonarr", "radarr"):
+            # NOTE: not dumping customFormats nor qualityProfiles
+            #  since they are too much info, that is pretty ugly
+            cfg["rootFolder"] = [v["path"] for v in self.get("/rootFolder")]
+
+        if self.type == "lidarr":
+            quality_profile_map = {
+                v["id"]: v["name"]  #
+                for v in self.get("/qualityprofile")
+            }
+            metadata_profile_map = {
+                v["id"]: v["name"]  #
+                for v in self.get("/metadataprofile")
+            }
+
+            cfg["rootFolder"] = self.dump_resources(
+                "/rootFolder",
+                lambda k, v: {
+                    **v,
+                    "defaultTags": [self.tag_id_map[i] for i in v.get("tags", [])],
+                    "defaultQualityProfileId": quality_profile_map[
+                        v["defaultQualityProfileId"]
+                    ],
+                    "defaultMetadataProfileId": metadata_profile_map[
+                        v["defaultMetadataProfileId"]
+                    ],
+                },
+            )
+
+        tags = []
+        for k in [
+            "downloadClient",
+            "appProfile",
+            "applications",
+            "indexerProxy",
+            "indexer",
+        ]:
+            tags += self.cfg.get(k, {}).get("tags", [])
+        self.cfg["tags"] = [t for t in self.tag_id_map.values() if t not in tags]
+
+        return cfg
+
+    def sync_tags(self):
         tags = self.cfg.get("tag", [])
 
         for k in ["indexer", "indexerProxy", "downloadClient", "applications"]:
@@ -310,10 +396,7 @@ class ArrSyncEngine:
                 [],
             )
 
-        return [tag.lower() for tag in unique(tags)]
-
-    def sync_tags(self):
-        tags = self.get_tags()
+        tags = [tag.lower() for tag in unique(tags)]
 
         existing = [v["label"] for v in self.get("/tag")]
         for tag in tags:
@@ -339,15 +422,16 @@ class ArrSyncEngine:
 
         schema = self.get(path + "/schema")
 
-        cfg = map_values(cfg, defaults)
         cfg = map_values(
             cfg,
             lambda k, v: {
                 **schema,
+                **existing,
                 "name": k,
                 **v,
             },
         )
+        cfg = map_values(cfg, defaults)
 
         for name, dat in existing.items():
             if name not in cfg:
@@ -356,10 +440,7 @@ class ArrSyncEngine:
         for name, dat in cfg.items():
             try:
                 if name in existing:
-                    self.put(
-                        f"{path}/{existing[name]['id']}",
-                        {**existing[name], **dat},
-                    )
+                    self.put(f"{path}/{existing[name]['id']}", dat)
                 else:
                     self.post(path, dat)
 
@@ -418,20 +499,22 @@ class ArrSyncEngine:
             lambda k, v: del_keys(
                 {
                     **v,
-                    "name": k,
-                    "enable": True,
                     "fields": {v["name"]: v.get("value", None) for v in v["fields"]},
                 },
                 ["presets"],
             ),
         )
-        
+
         cfg = map_values(
             cfg,
             lambda k, v: foldl(
                 deep_merge,
                 [
                     v,
+                    {
+                        "name": k,
+                        "enable": True,
+                    },
                     existing.get(k, {}),
                     schema[v[scheme_key[1]]],
                 ],
@@ -591,10 +674,7 @@ class ArrSyncEngine:
                 scheme_key=["name", "indexerName"],
             )
 
-            qmap = to_dict(
-                self.get("/qualityDefinition"),
-                "title",
-            )
+            qmap = to_dict(self.get("/qualityDefinition"), "title")
 
             for name, x in self.cfg["qualityDefinition"].items():
                 self.put(
