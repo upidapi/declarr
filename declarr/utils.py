@@ -66,9 +66,27 @@ def read_file(path: str):
         return f.read()
 
 
+def foldl(f, *args):
+    if len(args) == 0:
+        raise ValueError
+        
+    res = args[0]
+    for arg in args[1:]:
+        res = f(res, arg)
+    return res
+    
+def foldr(f, *args):
+    if len(args) == 0:
+        raise ValueError
+        
+    res = args[-1]
+    for arg in reversed(args[:-1]):
+        res = f(arg, res)
+    return res
+
 # first arg has prio
-def deep_merge(*args):
-    source, dest, *rem = args
+# dest is the default
+def deep_merge(source, dest):
     res = dict(dest)
     for k, v in source.items():
         if k in res and type(source[k]) is type(dest[k]) is dict:
@@ -76,13 +94,32 @@ def deep_merge(*args):
         else:
             res[k] = source[k]
 
-    if rem:
-        return deep_merge(res, *rem)
+    return res
+
+# a // b
+def deep_unmerge(a: dict, b: dict):
+    res = {}
+    for k, v in a.items():
+        if k not in b:
+            res[k] = v
+
+        if type(v) is not type(b[k]):
+            continue
+
+
+        if not isinstance(v, dict):
+            if deep_compare(k, b[k]):
+                continue
+            
+            res[k] = v
+
+        res[k] = deep_unmerge(v, b[k])
+
     return res
 
 
 def deep_compare(a, b):
-    if type(a) != type(b):
+    if type(a) is not type(b):
         return False
 
     if isinstance(a, dict):

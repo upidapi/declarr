@@ -1,3 +1,4 @@
+from declarr.utils import foldl
 from typing import Callable
 from pathlib import Path
 from unittest.mock import patch
@@ -252,7 +253,47 @@ class ArrSyncEngine:
     def put(self, path: str, body=None):
         return self._base_req("put ", self.r.put, path, body)
 
-    def sync_tags(self):
+    def parse_schema(self, path: str):
+        schemas = to_dict(self.get(path + "/schema"), "implementationName")
+
+    def dump_tags(self):
+        pass
+
+    def dump_resources(
+        self,
+        path: str,
+        key: str = "name",
+    ):
+        return to_dict(self.get(path), key)
+
+    def dump_contracts(
+        self,
+        path: str,
+    ):
+        existing = map_values(
+            to_dict(self.get(path), "name"),
+            lambda _, val: {
+                **val,
+                "fields": {v["name"]: v.get("value", None) for v in val["fields"]},
+            },
+        )
+
+        schema = map_values(
+            to_dict(self.get(f"{path}/schema"), scheme_key[0]),
+            lambda k, v: del_keys(
+                {
+                    **v,
+                    "name": k,
+                    "enable": True,
+                    "fields": {v["name"]: v.get("value", None) for v in v["fields"]},
+                },
+                ["presets"],
+            ),
+        )
+
+        return existing
+
+    def get_tags(self):
         tags = self.cfg.get("tag", [])
 
         for k in ["indexer", "indexerProxy", "downloadClient", "applications"]:
@@ -269,8 +310,13 @@ class ArrSyncEngine:
                 [],
             )
 
+        return [tag.lower() for tag in unique(tags)]
+
+    def sync_tags(self):
+        tags = self.get_tags()
+
         existing = [v["label"] for v in self.get("/tag")]
-        for tag in [tag.lower() for tag in unique(tags)]:
+        for tag in tags:
             if tag not in existing:
                 self.post("/tag", {"label": tag})
 
@@ -290,18 +336,22 @@ class ArrSyncEngine:
             return
 
         existing = to_dict(self.get(path), key)
-        for name, dat in existing.items():
-            if name not in cfg:
-                self.deferr_delete(f"{path}/{dat['id']}")
+
+        schema = self.get(path + "/schema")
 
         cfg = map_values(cfg, defaults)
         cfg = map_values(
             cfg,
             lambda k, v: {
+                **schema,
                 "name": k,
                 **v,
             },
         )
+
+        for name, dat in existing.items():
+            if name not in cfg:
+                self.deferr_delete(f"{path}/{dat['id']}")
 
         for name, dat in cfg.items():
             try:
@@ -322,6 +372,23 @@ class ArrSyncEngine:
     # def serialise_fields(self, f):
     #     return
 
+    # def fetch_defaults(self, path: str, key: str):
+    #     return map_values(
+    #         to_dict(self.get(f"{path}/schema"), key),
+    #         # i don't know why but the arr clients always seem to delete the
+    #         # "presets" key from the schema. (monkey see, monkey do)
+    #         # https://github.com/Lidarr/Lidarr/blob/7277458721256b36ab6c248f5f3b34da94e4faf9/frontend/src/Utilities/State/getProviderState.js#L44
+    #         lambda _, v: del_keys(
+    #             {
+    #                 **v,
+    #                 "fields": {
+    #                     v["name"]: v.get("value", None) for v in v.get("fields", [])
+    #                 },
+    #             },
+    #             ["presets"] + ([] if "fields" in v else ["fields"]),
+    #         ),
+    #     )
+
     def sync_contracts(
         self,
         path: str,
@@ -333,26 +400,11 @@ class ArrSyncEngine:
         if cfg is None:
             return
 
-        existing = to_dict(self.get(path), "name")
-        # pp(existing)
         existing = map_values(
-            existing,
+            to_dict(self.get(path), "name"),
             lambda _, val: {
                 **val,
                 "fields": {v["name"]: v.get("value", None) for v in val["fields"]},
-            },
-        )
-        cfg = map_values(
-            cfg,
-            lambda k, v: deep_merge(v, existing.get(k, {})),
-        )
-
-        cfg = map_values(
-            cfg,
-            lambda k, v: {
-                "enable": True,
-                "name": k,
-                **v,
             },
         )
 
@@ -363,27 +415,29 @@ class ArrSyncEngine:
             # i don't know why but the arr clients always seem to delete the
             # "presets" key from the schema. (monkey see, monkey do)
             # https://github.com/Lidarr/Lidarr/blob/7277458721256b36ab6c248f5f3b34da94e4faf9/frontend/src/Utilities/State/getProviderState.js#L44
-            lambda _, v: del_keys(
+            lambda k, v: del_keys(
                 {
                     **v,
+                    "name": k,
+                    "enable": True,
                     "fields": {v["name"]: v.get("value", None) for v in v["fields"]},
                 },
                 ["presets"],
             ),
         )
+        
         cfg = map_values(
             cfg,
-            lambda k, v: deep_merge(v, schema[v[scheme_key[1]]]),
+            lambda k, v: foldl(
+                deep_merge,
+                [
+                    v,
+                    existing.get(k, {}),
+                    schema[v[scheme_key[1]]],
+                ],
+            ),
         )
 
-        cfg = map_values(
-            cfg,
-            lambda k, v: {
-                "enable": True,
-                "name": k,
-                **v,
-            },
-        )
         cfg = map_values(cfg, defaults)
         cfg = map_values(
             cfg,
@@ -488,17 +542,8 @@ class ArrSyncEngine:
 
         # print(self.profile_map)
         if self.type in ("prowlarr",):
-            self.sync_resources(
-                "/appprofile",
-                self.cfg["appProfile"],
-                lambda k, v: {
-                    "enableRss": True,
-                    "enableAutomaticSearch": True,
-                    "enableInteractiveSearch": True,
-                    "minimumSeeders": 1,
-                    **v,
-                },
-            )
+            self.sync_resources("/appprofile", self.cfg["appProfile"])
+
             profile_map = {
                 v["name"]: v["id"]  #
                 for v in self.get("/appprofile")  #
@@ -523,7 +568,8 @@ class ArrSyncEngine:
 
                 return profile_map[id]
 
-            # TODO: make it possible to set /indexer for sonarr, radarr, lidarr
+            # using custom attr "indexerName" to allow user to change the name
+            # if indexer, but also select the real one based on the "real" name
             self.sync_contracts(
                 "/indexer",
                 self.cfg["indexer"],
@@ -539,6 +585,12 @@ class ArrSyncEngine:
             self.sync_contracts("/indexerProxy", self.cfg["indexerProxy"])
 
         if self.type in ("sonarr", "radarr", "lidarr"):
+            self.sync_contracts(
+                "/indexer",
+                self.cfg["indexer"],
+                scheme_key=["name", "indexerName"],
+            )
+
             qmap = to_dict(
                 self.get("/qualityDefinition"),
                 "title",
