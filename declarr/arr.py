@@ -419,16 +419,19 @@ class ArrSyncEngine:
 
             cfg["rootFolder"] = map_values(
                 to_dict(self.get("/rootFolder"), "name"),
-                lambda k, v: del_keys({
-                    **v,
-                    "defaultTags": [self.tag_id_map[i] for i in v.get("tags", [])],
-                    "defaultQualityProfileId": quality_profile_map[
-                        v["defaultQualityProfileId"]
-                    ],
-                    "defaultMetadataProfileId": metadata_profile_map[
-                        v["defaultMetadataProfileId"]
-                    ],
-                }, ["id", "accessible", "freeSpace", "totalSpace"]),
+                lambda k, v: del_keys(
+                    {
+                        **v,
+                        "defaultTags": [self.tag_id_map[i] for i in v.get("tags", [])],
+                        "defaultQualityProfileId": quality_profile_map[
+                            v["defaultQualityProfileId"]
+                        ],
+                        "defaultMetadataProfileId": metadata_profile_map[
+                            v["defaultMetadataProfileId"]
+                        ],
+                    },
+                    ["id", "accessible", "freeSpace", "totalSpace"],
+                ),
             )
 
         tags = []
@@ -503,7 +506,6 @@ class ArrSyncEngine:
             cfg = map_values(
                 cfg,
                 lambda k, v: {
-                    **existing,
                     "name": k,
                     **v,
                 },
@@ -518,7 +520,10 @@ class ArrSyncEngine:
         for name, dat in cfg.items():
             try:
                 if name in existing:
-                    self.put(f"{path}/{existing[name]['id']}", dat)
+                    self.put(
+                        f"{path}/{existing[name]['id']}",
+                        {**existing[name], **dat},
+                    )
                 else:
                     self.post(path, dat)
 
@@ -628,42 +633,6 @@ class ArrSyncEngine:
             # else:
             #     raise Exception(f"Cant create more instances of the {path} resource")
 
-    # def sync_paths(self, paths: list[str]):
-    #     pass
-
-    def recursive_sync(self, obj, resource=""):
-        if isinstance(obj, list):
-            for body in obj:
-                self.post(resource, body)
-            # print(pat)
-            # pp(defaults)
-
-            return
-
-        has_primative_val = any(
-            not isinstance(
-                obj[key],
-                (dict, list),
-            )
-            for key in obj
-        )
-        if has_primative_val or "__req" in obj:
-            obj.pop("__req", None)
-            self.put(
-                resource,
-                deep_merge(obj, self.get(resource)),
-            )
-            return
-
-        # if resource in paths:
-        #     self.put(
-        #         resource,
-        #         deep_merge(obj, self.get(resource)),
-        #     )
-
-        for key in obj:
-            self.recursive_sync(obj[key], f"{resource}/{key}")
-
     def sync(self):
         log.debug(
             f"{self.cfg['declarr']['name']} cfg: {json.dumps(self.cfg, indent=2)}"
@@ -696,8 +665,6 @@ class ArrSyncEngine:
             self.cfg = self.format_compiler.compile_formats(self.cfg)
 
         self.sync_tags()
-
-        # pp(self.tag_map)
 
         self.sync_contracts("/downloadClient", self.cfg["downloadClient"])
 
@@ -766,6 +733,7 @@ class ArrSyncEngine:
             self.sync_resources(
                 "/customformat",
                 self.cfg["customFormat"],
+                no_schema=True,
                 allow_error=True,
             )
 
@@ -841,7 +809,6 @@ class ArrSyncEngine:
                         v["defaultMetadataProfileId"]
                     ],
                 },
-
                 no_schema=True,
                 # key="path",
             )
@@ -860,9 +827,11 @@ class ArrSyncEngine:
 
         # TODO: /autoTagging
 
-        # TODO: explicitly set paths
-        #  eg /config/ui, /config/host
-        self.recursive_sync(self.cfg["config"], resource="/config")
+        for k, v in self.cfg["config"].items():
+            self.put(
+                f"/config/{k}",
+                deep_merge(v, self.get(f"/config/{k}")),
+            )
 
         for path, body in self.deferred_deletes:
             try:

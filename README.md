@@ -380,10 +380,7 @@ myArrService:
   # id is at runtime.
 
   # > sonarr, radarr, prowlarr, lidarr (the arr apps based on nzbcore)
-  # The fields under `/config/*`, such as `/config/ui and` `/config/host`, are handled
-  # via a heuristic. If a field contains any subfields that are not dictionaries or
-  # lists, it is treated as a simple POST. The current values are merged and then
-  # reposted.
+  # all fields under config, are pulled (GET) merged, and POST back again
   config:
     # POST url/config/host
     host: 
@@ -404,21 +401,6 @@ myArrService:
       theme: dark
       timeFormat: 'HH:mm'
 
-    notAreal:
-      # POST url/config/notAreal/option
-      option:
-        someKey: "someValue"
-
-      # POST url/config/notAreal/otherOption
-      otherOption:
-        # not url/config/notAreal/option/sub
-        # since the "someValue" isn't a dict nor list
-        someKey: "someValue"
-
-        sub:
-          someOtherKey: 123     
-
-  
   # Additional tags to be created. All referenced tags are automatically
   # created and subsequently converted to IDs during sync. If that isn't the
   # case please submit an issue
