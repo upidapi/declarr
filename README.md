@@ -74,6 +74,7 @@ declarr --dump dump.yaml
 ```
 
 ```yaml
+# dump.yaml
 { 
     # just the name of the service, no semantic meaning
     "prowlarr bla bla bla": {
