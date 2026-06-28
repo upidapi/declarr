@@ -444,8 +444,20 @@ class ArrSyncEngine:
         ]:
             for x in cfg.get(k, {}).values():
                 tags += x.get("tags", [])
-        # pp(tags)
+
         cfg["tags"] = [t for t in self.tag_id_map.values() if t not in tags]
+
+        cfg["config"] = {}
+
+        CORE = ["host", "ui"]
+        MEDIA = ["mediamanagement", "naming", "downloadclient"]
+        for path in {
+            "sonarr": CORE + MEDIA + ["indexer"],
+            "radarr": CORE + MEDIA + ["indexer", "metadata"],
+            "lidarr": CORE + MEDIA + ["metadataprovider"],
+            "prowlarr": CORE + ["development"],
+        }[self.type]:
+            cfg["config"][path] = self.get(f"/config/{path}")
 
         return cfg
 
