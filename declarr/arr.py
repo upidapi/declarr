@@ -276,6 +276,7 @@ class ArrSyncEngine:
             lambda k, v: deep_unmerge(v, defaults),
         )
 
+    # TODO: implement this
     """
     There are 3 lvls of dumps, each one tries to strip increasing info. With 
     the trade of that it may be less correct.
@@ -334,7 +335,8 @@ class ArrSyncEngine:
             x[scheme_key_save[1]] = defaults[v[scheme_key[1]]][scheme_key_save[0]]
 
             x = del_keys(x, rm_fields)
-            x = del_keys(x, rm_fields_dense)
+            # enable when dense
+            # x = del_keys(x, rm_fields_dense)
 
             config[k] = x
 
