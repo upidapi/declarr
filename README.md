@@ -20,50 +20,22 @@ Buildarr-style validation) is explicitly out of scope.
 > config that is not defined in declarr's conifg. I reserve the right for
 > breaking changes.
 
-## Inspiration / similar projects
+## Usage
+Make sure that the sub services like qbittorrent is up and running before
+declarr starts, otherwise the api request errors.
 
-Buildarr
+```bash
+# sync *arr conifgs
+declarr --sync config.yaml
 
-- A full batteries included managment program
+# sync and run jellyseerr
+declarr --sync --run jellyseerr config.yaml
 
-- To complex for my taste
-- Personal skill issue (i couldn't get it to run under nix)
+# run from flake
+nix run .#declarr -- --sync config.yaml
+```
 
-Flemarr
-
-- API parameters stored in YAML to push changes.
-
-- Cant handle idempotent updates
-- Cant generate ids for things during sync
-  - This makes many things impossible, likes configuring tags as these
-    must be configured via a non repoducable id
-- No QOL features
-
-- A massive inspiration for this project, I probably would not have made this
-  if it were not for flemarr.
-
-Recyclarr
-
-- Automatically syncs recommended TRaSH-Guides settings to Sonarr/Radarr
-
-- Only supports Sonarr/Radarr
-- To complex for my taste
-- No fine grain control
-
-Profilarr
-
-- Configuration management tool for Radarr/Sonarr, excellent at
-  quality profiles and custom formats
-
-- Only supports Sonarr/Radarr
-- No declarative config,
-- Limited features
-
-- Declarr uses profilarr under the hood to compile qualityProfile and
-  customFormat
-
-## nix
-
+### nix
 Built to be used with nix, but works fully without it.
 
 The *arr stack is configured under services.declarr, jellyseerr is configured
@@ -89,24 +61,7 @@ config.services = {
 }
 ```
 
-## Usage
-
-Make sure that the sub services like qbittorrent is up and running before
-declarr starts, otherwise the api request errors.
-
-```bash
-# sync *arr conifgs
-declarr --sync config.yaml
-
-# sync and run jellyseerr
-declarr --sync --run jellyseerr config.yaml
-
-# run from flake
-nix run .#declarr -- --sync config.yaml
-```
-
 ### Dumping your config
-
 Declarr currently supports radarr, sonarr, lidarr, prowlarr, and
 can dump all fields that it can configure.
 
@@ -149,24 +104,35 @@ declarr --dump dump.yaml
 }
 ```
 
-### secrets
+### Examples
+See my personal dotfiles
+([*arr](https://github.com/upidapi/NixOs/blob/main/modules/nixos/homelab/media/declarr.nix),
+[jellyseerr](https://github.com/upidapi/NixOs/blob/main/modules/nixos/homelab/media/jellyseerr.nix))
+for nix usage examples.
 
+Or look at the example configurations in [arr.yaml](config/arr.yaml)
+[jellyseerr.yaml](config/jellyseerr.yaml). They are generated from my nix config
+
+#### Docs / Maximal config
+[Maximal config](maximal.yaml) a "config" that tries to showcase all of
+declarr's configuration options. Doesn't actually work.
+
+Also tries to explain how it works, so it works like more docs
+
+### secrets
 Secrets can be provided through 2 main ways.
 
 #### resolvePaths/globalResolvePaths
-
 Each value that matches any of the globalResolvePaths will be assumed to contain
 a file path, that declarr then reads and replaces it with. resolvePaths works
 the same but is scoped the that service.
 
 #### Env vars
-
 All values that are prefixed with DECLARR_SECRET_ are resolved as env vars.
 Additionally if they are prefixed with DECLARR_SECRET_FILE_ the value in the env
 var will be resolved to the content of said file.
 
 #### examples
-
 ```json
 {
     "declarr": {
@@ -195,7 +161,6 @@ declarr
 ```
 
 ### jellyseerr
-
 Unless explicitly stated otherwise, configuration keys mirror Jellyseerr’s
 config.json format.
 
@@ -212,7 +177,6 @@ Due to how jellyseerr is inited and configured, it has to be run by declarr.
 Ie declarr cant configure it from a separate process.
 
 ### *arr stack (sonarr, radarr, prowlarr, lidarr)
-
 If noting mentions otherwise, the config is strutted like the api requests that
 will be used to configure it.
 
@@ -263,8 +227,8 @@ prowlarr:
   indexer:
     LimeTorrents:
       # Since declarr isn't managing appProfile (in this example) this might
-      # error. But as long as it does exist, declarr will successfully resolve
-      # it to its id;
+      # error if it doesnt exist. But as long as it does, declarr will
+      # successfully resolve it to its id;
       appProfileId: Interactive Search
       fields:
         definitionFile: limetorrents
@@ -287,7 +251,7 @@ prowlarr:
   # since this is empty, all downloadClient's will be deleted
   downloadClient:
 
-  # Since this isn't specified att all, declarr wont do anything with it.
+  # Since appProfile isn't specified, declarr wont do anything with it.
   # However declarr will still try to resolve identifiers to ids, but will fail 
   # if they don't exist.
   # appProfile:
@@ -309,19 +273,46 @@ prowlarr:
 
 ```
 
-### Examples
-See my personal dotfiles
-([*arr](https://github.com/upidapi/NixOs/blob/main/modules/nixos/homelab/media/declarr.nix),
-[jellyseerr](https://github.com/upidapi/NixOs/blob/main/modules/nixos/homelab/media/jellyseerr.nix))
-for nix usage examples.
+## Inspiration / similar projects
+Buildarr
 
-Or look at the example configurations in [arr.yaml](config/arr.yaml)
-[jellyseerr.yaml](config/jellyseerr.yaml). They are generated from my nix config
+- A full batteries included managment program
 
-[Maximal config](maximal.yaml) a "config" that tries to showcase all of
-declarr's configuration options. Doesn't actually work. Also tries to explain 
-all of them.
+- To complex for my taste
+- Personal skill issue (i couldn't get it to run under nix)
 
+Flemarr
+
+- API parameters stored in YAML to push changes.
+
+- Cant handle idempotent updates
+- Cant generate ids for things during sync
+  - This makes many things impossible, likes configuring tags as these
+    must be configured via a non repoducable id
+- No QOL features
+
+- A massive inspiration for this project, I probably would not have made this
+  if it were not for flemarr.
+
+Recyclarr
+
+- Automatically syncs recommended TRaSH-Guides settings to Sonarr/Radarr
+
+- Only supports Sonarr/Radarr
+- To complex for my taste
+- No fine grain control
+
+Profilarr
+
+- Configuration management tool for Radarr/Sonarr, excellent at
+  quality profiles and custom formats
+
+- Only supports Sonarr/Radarr
+- No declarative config,
+- Limited features
+
+- Declarr uses profilarr under the hood to compile qualityProfile and
+  customFormat
 
 ## TODO
 Fell free to submit issues/pr(s) if you find some issue, or implement one of
