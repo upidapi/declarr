@@ -35,31 +35,6 @@ declarr --sync --run jellyseerr config.yaml
 nix run .#declarr -- --sync config.yaml
 ```
 
-### nix
-Built to be used with nix, but works fully without it.
-
-The *arr stack is configured under services.declarr, jellyseerr is configured
-under services.jellyseerr.config
-
-```nix
-imports = [
-  inputs.declarr.nixosModules.default
-];
-
-config.services = {
-  declarr = {
-    enable = true;
-    # ...
-  };
-  # declarr extends the existing module
-  jellyseerr = {
-    enable = true;
-    config = {
-      # ...
-    };
-  };
-}
-```
 
 ### Dumping your config
 Declarr currently supports radarr, sonarr, lidarr, prowlarr, and
@@ -102,6 +77,33 @@ declarr --dump dump.yaml
         "url": "http://127.0.0.1:8000",
         "apiKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
+}
+```
+
+## Configuring
+### nix
+Built to be used with nix, but works fully without it.
+
+The *arr stack is configured under services.declarr, jellyseerr is configured
+under services.jellyseerr.config
+
+```nix
+imports = [
+  inputs.declarr.nixosModules.default
+];
+
+config.services = {
+  declarr = {
+    enable = true;
+    # ...
+  };
+  # declarr extends the existing module
+  jellyseerr = {
+    enable = true;
+    config = {
+      # ...
+    };
+  };
 }
 ```
 
