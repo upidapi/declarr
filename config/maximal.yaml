@@ -1,0 +1,220 @@
+# Note: this is not a valid config at al, its only to showcase all the options
+
+# many fields are only valid for some services
+# eg `> lidarr, prowlarr`, means that this option is only valid for lidarr and prowlarr
+
+# Meta config for declarr
+declarr:
+  cfgVersion: 1
+
+  # where declarr stores data
+  # currently only the format db git repo
+  stateDir: /var/lib/declarr
+
+  # branch to pull formats from 
+  formatDbBranch: stable
+  # repo to pull formats from
+  formatDbRepo: 'https://github.com/Dictionarry-Hub/Database'
+
+  # all values that match these values are resolved into the file content
+  globalResolvePaths:
+    - $.*.config.host.password
+    - $.*.config.host.passwordConfirmation
+    - $.*.config.host.apiKey
+    - $.*.applications.*.fields.apiKey
+    - $.*.indexer.*.fields.password
+    - $.*.downloadClient.*.fields.password
+
+# this key is arbitrary, only used as the name of service
+nameForService:
+  declarr:
+    type: prowlarr # prowlar | sonarr | radarr | lidarr | jellyseerr
+    # url that declarr should send api requests to to configure 
+    url: 'http://localhost:8505'
+
+    # optional
+    # like globalResolvePaths but scoped to only this service
+    resolvePaths:
+      # ...
+
+    # > jellyseerr
+    port: 8506
+    # > jellyseerr
+    stateDir: "/var/lib/jellyseerr"
+
+  # ...
+
+myJellyseerService:
+  declarr:
+    type: jellyseerr
+
+    stateDir: /var/lib/jellyseerr
+    url: http://localhost:8507
+    port: 8507
+
+    resolvePaths:
+      - $.main.apiKey
+      - $.jellyfin.password
+      - $.radarr[*].apiKey
+      - $.sonarr[*].apiKey
+  
+  jellyfin:
+    apiKey: /run/secrets/jellyfin/jellyseerr-api-key
+    email: test@test.com
+    externalHostname: 'https://jellyfin.upidapi.dev'
+    ip: 127.0.0.1
+    jellyfinForgotPasswordUrl: ''
+    libraries:
+      - enabled: true
+        name: Movies
+        type: movie
+      - enabled: true
+        name: Shows
+        type: show
+    name: upinix-laptop
+    password: /run/secrets/jellyfin/users/admin/password_jellyseerr
+    port: 8508
+    urlBase: ''
+    useSsl: false
+    username: admin
+  # ...
+
+# Example for sonarr, radarr, lidarr, prowlarr
+myArrService:
+  # meta cfg 
+  declarr:
+    type: prowlarr
+    url: 'http://localhost:8505'
+
+    # optional
+    # like globalResolvePaths but scoped to only this service
+    resolvePaths:
+      # ...
+
+  # All config keys map closely to the api for the respective application
+
+  # All things that would usually require unpredictable id's instead takes some
+  # specifier (usually the name). That will then be used to figure out what the
+  # id is at runtime.
+
+  # > sonarr, radarr, prowlarr, lidarr (the arr apps based on nzbcore)
+  # all fields under config, are pulled (GET) merged, and POST back again
+  config:
+    # POST url/config/host
+    host: 
+      # also resolved to file content, due to globalResolvePath
+      # "$.*.config.host.apiKey"
+      apiKey: /run/secrets/prowlarr/api-key_declarr
+      authenticationMethod: forms
+      # matches, $.*.config.host.password
+      password: /run/secrets/prowlarr/password_declarr
+      # matches $.*.config.host.passwordConfirmation
+      passwordConfirmation: /run/secrets/prowlarr/password_declarr
+      username: admin
+      # ...
+
+    # POST url/config/ui
+    ui:
+      firstDayOfWeek: 1
+      theme: dark
+      timeFormat: 'HH:mm'
+
+  # Additional tags to be created. All referenced tags are automatically
+  # created and subsequently converted to IDs during sync. If that isn't the
+  # case please submit an issue
+  tag:
+    - someExtraTag
+
+  # > prowlarr
+  applications:
+    Lidarr:
+      fields:
+        # due to the globalResolvePath "$.*.applications.*.fields.apiKey"
+        # this will be replaced with the file content at 
+        # /run/secrets/lidarr/api-key_declarr
+        apiKey: /run/secrets/lidarr/api-key_declarr
+        baseUrl: 'http://localhost:8502'
+        prowlarrUrl: 'http://localhost:8505'
+      implementation: Lidarr
+      syncLevel: fullSync # 
+    Radarr:
+      fields:
+        # same goes for here
+        apiKey: /run/secrets/radarr/api-key_declarr
+        baseUrl: 'http://localhost:8500'
+        prowlarrUrl: 'http://localhost:8505'
+      implementation: Radarr
+      syncLevel: fullSync
+    # ...
+  # > prowlarr
+  appProfile:
+    # ...
+
+  # > prowlarr
+  indexerProxy:
+    FlareSolverr:
+      fields:
+        host: 'http://localhost:8506/'
+        requestTimeout: 60
+      implementation: FlareSolverr
+      tags:
+        - FlareSolverr
+
+  # > prowlarr
+  # you need to set .indexerName to the name of the indexer. This is to make it
+  # possible to find the right schematic. 
+  # This is to avoid declarr from editing and deleting the indexers that prowlar
+  # creates.
+  indexer:
+    TorrentLeech:
+      # Resolved into id
+      appProfileId: Interactive Search 
+      fields:
+        definitionFile: torrentleech
+        freeleech: false
+        password: /run/secrets/prowlarr/indexers/torrentLeech/password_declarr
+        username: upidapi
+      implementation: Cardigann
+      indexerName: TorrentLeech
+      priority: 25
+      # resolved into the id for the tag "FlareSolverr" (case insensitive)
+      tags:
+        - FlareSolverr
+
+  # > sonarr, radarr
+  # list of paths
+  rootFolder:
+    - /raid/media/movies
+    - /raid/media/moreMovies
+
+  # > lidarr
+  # dict
+  rootFolder:
+    main:
+      defaultMetadataProfileId: Standard
+      defaultMonitorOption: all
+      defaultNewItemMonitorOption: all
+      defaultQualityProfileId: Standard
+      defaultTags: []
+      path: /raid/media/music
+
+  # > sonarr, radarr, lidarr
+  qualityDefinition: 
+    # ...
+  
+  # > sonarr, radarr
+  # If an entry exists in formatDb, it is merged with that definition. Each
+  # resulting field is then compiled into API requests using Profilarr’s logic.
+  # For details on how this works, see examples in the Dictionarry-Hub Database
+  # repository: https://github.com/Dictionarry-Hub/Database
+  customFormat:
+    # ...
+  qualityProfile:
+    # ...
+
+  # "connect" in the ui
+  notification:
+    # ...
+
+  downloadClient:
+    # ...

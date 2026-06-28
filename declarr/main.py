@@ -126,7 +126,7 @@ def main():
     args = parse_args()
 
     if args.dump:
-        d = json.loads(read_file(args.config))
+        d = yaml.safe_load(open(args.config, "r"))
 
         res = {}
         for k, v in d.items():

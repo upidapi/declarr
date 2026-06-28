@@ -1,4 +1,4 @@
-# declarr 
+# declarr
 Declarative config for the *arr stack (currently sonarr, raddar, lidarr,
 prowlarr, jellyseerr)
 
@@ -21,25 +21,29 @@ Buildarr-style validation) is explicitly out of scope.
 > breaking changes.
 
 ## Inspiration / similar projects
+
 Buildarr
+
 - A full batteries included managment program
 
 - To complex for my taste
 - Personal skill issue (i couldn't get it to run under nix)
 
 Flemarr
-- API parameters stored in YAML to push changes. 
 
-- Cant handle idempotent updates 
+- API parameters stored in YAML to push changes.
+
+- Cant handle idempotent updates
 - Cant generate ids for things during sync
   - This makes many things impossible, likes configuring tags as these
     must be configured via a non repoducable id
 - No QOL features
 
-- A massive inspiration for this project, I probably would not have made this 
-  if it were not for flemarr. 
+- A massive inspiration for this project, I probably would not have made this
+  if it were not for flemarr.
 
 Recyclarr
+
 - Automatically syncs recommended TRaSH-Guides settings to Sonarr/Radarr
 
 - Only supports Sonarr/Radarr
@@ -47,21 +51,22 @@ Recyclarr
 - No fine grain control
 
 Profilarr
+
 - Configuration management tool for Radarr/Sonarr, excellent at
   quality profiles and custom formats
 
 - Only supports Sonarr/Radarr
-- No declarative config, 
+- No declarative config,
 - Limited features
 
 - Declarr uses profilarr under the hood to compile qualityProfile and
   customFormat
 
-
 ## nix
-Built to be used with nix, but works fully without it. 
 
-The *arr stack is configured under services.declarr, jellyseerr is configured 
+Built to be used with nix, but works fully without it.
+
+The *arr stack is configured under services.declarr, jellyseerr is configured
 under services.jellyseerr.config
 
 ```nix
@@ -84,50 +89,84 @@ config.services = {
 }
 ```
 
-
-## TODO
-Fell free to submit issues/pr(s) if you find some issue, or implement one of
-these. Remember that this is ment to be simple, i don't want this to become a 
-complex mess. I reserve the right to reject prs if they fail to follow this.
-
-- Make it possible to do the reverse, ie pull the current state in *arr and
-  jellyseerr into a config file. 
-
-- Create config files that match the trash guides
-
-- Fully implement lidarr
-
-- Add more services
-
-- Use the config contracts from nzbcore, for more intelligent options and
-  defaults.
-
 ## Usage
+
 Make sure that the sub services like qbittorrent is up and running before
 declarr starts, otherwise the api request errors.
 
 ```bash
 # sync *arr conifgs
-declarr --sync config.json
+declarr --sync config.yaml
 
 # sync and run jellyseerr
-declarr --sync --run jellyseerr config.json
+declarr --sync --run jellyseerr config.yaml
+
+# run from flake
+nix run .#declarr -- --sync config.yaml
+```
+
+### Dumping your config
+
+Declarr currently supports radarr, sonarr, lidarr, prowlarr, and
+can dump all fields that it can configure.
+
+`host.config.passoword` and many of the passwords for other services can't be
+dumped as its not returned by the api. Afaik everything that is censored except
+for `host.config.passoword` is replaced with "********"
+
+```bash
+declarr --dump dump.yaml
+```
+
+```yaml
+{ 
+    # just the name of the service, no semantic meaning
+    "prowlarr bla bla bla": {
+        "type": "prowlarr",
+        "url": "https://prowlarr.test.dev",
+        "apiKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "sonarr": {
+        "type": "sonarr",
+        "url": "https://sonarr.test.dev/",
+        "apiKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "sonarr (anime)": {
+        "type": "sonarr",
+        "url": "https://sonarr-anime.test.dev/",
+        "apiKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "lidarr": {
+        "type": "lidarr",
+        "url": "http://127.0.0.1:8000",
+        "apiKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "radarr": {
+        "type": "lidarr",
+        "url": "http://127.0.0.1:8000",
+        "apiKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+}
 ```
 
 ### secrets
-Secrets can be provided through 2 main ways. 
+
+Secrets can be provided through 2 main ways.
 
 #### resolvePaths/globalResolvePaths
+
 Each value that matches any of the globalResolvePaths will be assumed to contain
 a file path, that declarr then reads and replaces it with. resolvePaths works
 the same but is scoped the that service.
 
 #### Env vars
+
 All values that are prefixed with DECLARR_SECRET_ are resolved as env vars.
 Additionally if they are prefixed with DECLARR_SECRET_FILE_ the value in the env
 var will be resolved to the content of said file.
 
 #### examples
+
 ```json
 {
     "declarr": {
@@ -155,8 +194,8 @@ DECLARR_SECRET_FILE_APIKEY=/run/secrets/api-key \\
 declarr 
 ```
 
-
 ### jellyseerr
+
 Unless explicitly stated otherwise, configuration keys mirror Jellyseerr’s
 config.json format.
 
@@ -172,8 +211,8 @@ At this time, only Jellyfin authentication is supported.
 Due to how jellyseerr is inited and configured, it has to be run by declarr.
 Ie declarr cant configure it from a separate process.
 
-
 ### *arr stack (sonarr, radarr, prowlarr, lidarr)
+
 If noting mentions otherwise, the config is strutted like the api requests that
 will be used to configure it.
 
@@ -211,11 +250,11 @@ Declarr supports all config options (that i know of) except for
 - /customFormats, /qualityProfiles, /metadataProfile, /metadata for lidarr
 
 The `"fields": {"name": a, "value": b}[]` field that exists on eg
-`/downloadClient`, is expanded from a dict. 
+`/downloadClient`, is expanded from a dict.
 
 If a top level field is not set, then declarr fully ignores it. However setting
 it to eg an empty set, then declarr will delete all resources not explicitly
-defined. 
+defined.
 
 ```yaml
 prowlarr:
@@ -271,237 +310,32 @@ prowlarr:
 ```
 
 ### Examples
-See my personal dotfiles 
-([*arr](https://github.com/upidapi/NixOs/blob/main/modules/nixos/homelab/media/declarr.nix), 
+See my personal dotfiles
+([*arr](https://github.com/upidapi/NixOs/blob/main/modules/nixos/homelab/media/declarr.nix),
 [jellyseerr](https://github.com/upidapi/NixOs/blob/main/modules/nixos/homelab/media/jellyseerr.nix))
 for nix usage examples.
 
 Or look at the example configurations in [arr.yaml](config/arr.yaml)
 [jellyseerr.yaml](config/jellyseerr.yaml). They are generated from my nix config
 
-#### Maximal config
-Can not be used, only to showcase declarr's configuration options.
+[Maximal config](maximal.yaml) a "config" that tries to showcase all of
+declarr's configuration options. Doesn't actually work. Also tries to explain 
+all of them.
 
-eg `> lidarr, `, means that this option is only valid for lidarr and prowlarr
 
-```yaml
-# Meta config for declarr
-declarr:
-  cfgVersion: 1
+## TODO
+Fell free to submit issues/pr(s) if you find some issue, or implement one of
+these. Remember that this is ment to be simple, i don't want this to become a
+complex mess. I reserve the right to reject prs if they fail to follow this.
 
-  # where declarr stores data
-  # currently only the format db git repo
-  stateDir: /var/lib/declarr
+- Create config files that match the trash guides
 
-  # branch to pull formats from 
-  formatDbBranch: stable
-  # repo to pull formats from
-  formatDbRepo: 'https://github.com/Dictionarry-Hub/Database'
+- Fully implement lidarr
 
-  # all values that match these values are resolved into the file content
-  globalResolvePaths:
-    - $.*.config.host.password
-    - $.*.config.host.passwordConfirmation
-    - $.*.config.host.apiKey
-    - $.*.applications.*.fields.apiKey
-    - $.*.indexer.*.fields.password
-    - $.*.downloadClient.*.fields.password
+- Add more services
 
-# this key is arbitrary, only used as the name of service
-nameForService:
-  declarr:
-    type: prowlarr # prowlar | sonarr | radarr | lidarr | jellyseerr
-    # url that declarr should send api requests to to configure 
-    url: 'http://localhost:8505'
-
-    # optional
-    # like globalResolvePaths but scoped to only this service
-    resolvePaths:
-      # ...
-
-    # > jellyseerr
-    port: 8506
-    # > jellyseerr
-    stateDir: "/var/lib/jellyseerr"
-
-  # ...
-
-myJellyseerService:
-  declarr:
-    type: jellyseerr
-
-    stateDir: /var/lib/jellyseerr
-    url: http://localhost:8507
-    port: 8507
-
-    resolvePaths:
-      - $.main.apiKey
-      - $.jellyfin.password
-      - $.radarr[*].apiKey
-      - $.sonarr[*].apiKey
-  
-  jellyfin:
-    apiKey: /run/secrets/jellyfin/jellyseerr-api-key
-    email: test@test.com
-    externalHostname: 'https://jellyfin.upidapi.dev'
-    ip: 127.0.0.1
-    jellyfinForgotPasswordUrl: ''
-    libraries:
-      - enabled: true
-        name: Movies
-        type: movie
-      - enabled: true
-        name: Shows
-        type: show
-    name: upinix-laptop
-    password: /run/secrets/jellyfin/users/admin/password_jellyseerr
-    port: 8508
-    urlBase: ''
-    useSsl: false
-    username: admin
-  # ...
-
-# Example for sonarr, radarr, lidarr, prowlarr
-myArrService:
-  # meta cfg 
-  declarr:
-    type: prowlarr
-    url: 'http://localhost:8505'
-
-    # optional
-    # like globalResolvePaths but scoped to only this service
-    resolvePaths:
-      # ...
-
-  # All config keys map closely to the api for the respective application
-
-  # All things that would usually require unpredictable id's instead takes some
-  # specifier (usually the name). That will then be used to figure out what the
-  # id is at runtime.
-
-  # > sonarr, radarr, prowlarr, lidarr (the arr apps based on nzbcore)
-  # all fields under config, are pulled (GET) merged, and POST back again
-  config:
-    # POST url/config/host
-    host: 
-      # also resolved to file content, due to globalResolvePath
-      # "$.*.config.host.apiKey"
-      apiKey: /run/secrets/prowlarr/api-key_declarr
-      authenticationMethod: forms
-      # matches, $.*.config.host.password
-      password: /run/secrets/prowlarr/password_declarr
-      # matches $.*.config.host.passwordConfirmation
-      passwordConfirmation: /run/secrets/prowlarr/password_declarr
-      username: admin
-      # ...
-
-    # POST url/config/ui
-    ui:
-      firstDayOfWeek: 1
-      theme: dark
-      timeFormat: 'HH:mm'
-
-  # Additional tags to be created. All referenced tags are automatically
-  # created and subsequently converted to IDs during sync. If that isn't the
-  # case please submit an issue
-  tag:
-    - someExtraTag
-
-  # > prowlarr
-  applications:
-    Lidarr:
-      fields:
-        # due to the globalResolvePath "$.*.applications.*.fields.apiKey"
-        # this will be replaced with the file content at 
-        # /run/secrets/lidarr/api-key_declarr
-        apiKey: /run/secrets/lidarr/api-key_declarr
-        baseUrl: 'http://localhost:8502'
-        prowlarrUrl: 'http://localhost:8505'
-      implementation: Lidarr
-      syncLevel: fullSync # 
-    Radarr:
-      fields:
-        # same goes for here
-        apiKey: /run/secrets/radarr/api-key_declarr
-        baseUrl: 'http://localhost:8500'
-        prowlarrUrl: 'http://localhost:8505'
-      implementation: Radarr
-      syncLevel: fullSync
-    # ...
-  # > prowlarr
-  appProfile:
-    # ...
-
-  # > prowlarr
-  indexerProxy:
-    FlareSolverr:
-      fields:
-        host: 'http://localhost:8506/'
-        requestTimeout: 60
-      implementation: FlareSolverr
-      tags:
-        - FlareSolverr
-
-  # > prowlarr
-  # you need to set .indexerName to the name of the indexer. This is to make it
-  # possible to find the right schematic. 
-  # This is to avoid declarr from editing and deleting the indexers that prowlar
-  # creates.
-  indexer:
-    TorrentLeech:
-      # Resolved into id
-      appProfileId: Interactive Search 
-      fields:
-        definitionFile: torrentleech
-        freeleech: false
-        password: /run/secrets/prowlarr/indexers/torrentLeech/password_declarr
-        username: upidapi
-      implementation: Cardigann
-      indexerName: TorrentLeech
-      priority: 25
-      # resolved into the id for the tag "FlareSolverr" (case insensitive)
-      tags:
-        - FlareSolverr
-
-  # > sonarr, radarr
-  # list of paths
-  rootFolder:
-    - /raid/media/movies
-    - /raid/media/moreMovies
-
-  # > lidarr
-  # dict
-  rootFolder:
-    main:
-      defaultMetadataProfileId: Standard
-      defaultMonitorOption: all
-      defaultNewItemMonitorOption: all
-      defaultQualityProfileId: Standard
-      defaultTags: []
-      path: /raid/media/music
-
-  # > sonarr, radarr, lidarr
-  qualityDefinition: 
-    # ...
-  
-  # > sonarr, radarr
-  # If an entry exists in formatDb, it is merged with that definition. Each
-  # resulting field is then compiled into API requests using Profilarr’s logic.
-  # For details on how this works, see examples in the Dictionarry-Hub Database
-  # repository: https://github.com/Dictionarry-Hub/Database
-  customFormat:
-    # ...
-  qualityProfile:
-    # ...
-
-  # "connect" in the ui
-  notification:
-    # ...
-
-  downloadClient:
-    # ...
-```
-
+- Use the config contracts from nzbcore, for more intelligent options and
+  defaults.
 
 ## dev stuff
 ```nu
