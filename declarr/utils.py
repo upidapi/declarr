@@ -66,7 +66,7 @@ def read_file(path: str):
         return f.read()
 
 
-def foldl(f, *args):
+def foldl(f, args):
     if len(args) == 0:
         raise ValueError
         
@@ -75,7 +75,7 @@ def foldl(f, *args):
         res = f(res, arg)
     return res
     
-def foldr(f, *args):
+def foldr(f, args):
     if len(args) == 0:
         raise ValueError
         
@@ -102,16 +102,18 @@ def deep_unmerge(a: dict, b: dict):
     for k, v in a.items():
         if k not in b:
             res[k] = v
-
-        if type(v) is not type(b[k]):
             continue
 
+        if deep_compare(v, b[k]):
+            continue
+
+        if type(v) is not type(b[k]):
+            res[k] = v
+            continue
 
         if not isinstance(v, dict):
-            if deep_compare(k, b[k]):
-                continue
-            
             res[k] = v
+            continue
 
         res[k] = deep_unmerge(v, b[k])
 

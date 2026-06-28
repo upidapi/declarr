@@ -1,3 +1,4 @@
+from declarr.utils import deep_unmerge
 import sys
 import yaml
 import json
@@ -35,7 +36,7 @@ def parse_args():
 
     parser.add_argument(
         "--dump",
-        # action="store_true",
+        action="store_true",
         help="Dump config",
     )
     # parser.add_argument(
@@ -124,16 +125,34 @@ def resolve_env_vars(cfg):
 def main():
     args = parse_args()
 
-    if args.dump is not None:
-        d = json.loads(args.dump)
+    if args.dump:
+        d = json.loads(read_file(args.config))
 
         res = {}
         for k, v in d.items():
             if v["type"] not in ("sonarr", "radarr", "lidarr", "prowlarr"):
                 log.critical(f"Cant dump {v['type']}")
                 exit(1)
-            
-            res[k] = ArrSyncEngine({}, None).dump()
+
+            res[k] = ArrSyncEngine(
+                {
+                    "declarr": {
+                        "type": v["type"],
+                        "url": v["url"],
+                    },
+                    "config": {"host": {"apiKey": v["apiKey"]}},
+                },
+                None,
+            ).dump()
+
+        print(
+            'Note: fields with the value "********" are censored by *arr and '
+            "can't be automatically retrived",
+            file=sys.stderr,
+        )
+        pp(res)
+
+        exit(1)
 
     logging.basicConfig(
         level={
@@ -162,7 +181,6 @@ def main():
     # pp(cfgs)
 
     # exit(1)
-
 
     format_compiler = None
 

@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 import time
 import subprocess
+import sys
 
 import requests
 from urllib3.util import Retry
@@ -270,13 +271,28 @@ class ArrSyncEngine:
 
         defaults = self.get(path + "/schema")
 
-        return deep_unmerge(existing, defaults)
+        return map_values(
+            existing,
+            lambda k, v: deep_unmerge(v, defaults),
+        )
+
+    """
+    There are 3 lvls of dumps, each one tries to strip increasing info. With 
+    the trade of that it may be less correct.
+
+    verbose: full config, a static copy (really huge)
+    normal: config is deduped against defaults, not equivalent if defaults change
+    dense: additional fields are removed, may remove too much
+    """
 
     def dump_contracts(
         self,
         path: str,
         update: Callable[[str, dict], dict] = lambda k, v: v,
+        rm_fields: list[str] = [],
+        rm_fields_dense: list[str] = [],
         scheme_key=["implementation", "implementation"],
+        scheme_key_save=["implementation", "implementation"],
     ):
         existing = map_values(
             to_dict(self.get(path), "name"),
@@ -294,16 +310,55 @@ class ArrSyncEngine:
             lambda k, v: del_keys(
                 {
                     **v,
-                    "name": k,
                     "enable": True,
                     "fields": {v["name"]: v.get("value", None) for v in v["fields"]},
-                    "tags": [self.tag_id_map[i] for i in v.get("tags", [])],
                 },
                 ["presets"],
             ),
         )
 
-        return deep_unmerge(existing, defaults)
+        config = {}
+        for k, v in existing.items():
+            x = {
+                **v,
+                # "name": k,
+                "tags": [self.tag_id_map[i] for i in v.get("tags", [])],
+            }
+            x = deep_unmerge(x, defaults[v[scheme_key[1]]])
+
+            # add the schema key
+            # has to be after the deep_unmerge to prevent if from
+            # getting removed
+            # print(scheme_key_save[0], file=sys.stderr)
+            # print(prettify(defaults[v[scheme_key[1]]]), file=sys.stderr)
+            x[scheme_key_save[1]] = defaults[v[scheme_key[1]]][scheme_key_save[0]]
+
+            x = del_keys(x, rm_fields)
+            x = del_keys(x, rm_fields_dense)
+
+            config[k] = x
+
+        return config
+
+        # return map_values(
+        #     existing,
+        #     lambda k, v: del_keys(
+        #         {
+        #             # add the schema key
+        #             # has to be after the deep_unmerge to prevent if from
+        #             # getting removed
+        #             scheme_key_save[1]: defaults[v[scheme_key[1]]][scheme_key_save[0]],
+        #             **deep_unmerge(
+        #                 {
+        #                     **v,
+        #                     "tags": [self.tag_id_map[i] for i in v.get("tags", [])],
+        #                 },
+        #                 defaults[v[scheme_key[1]]],
+        #             ),
+        #         },
+        #         ["capabilities", "encoding", "added"],
+        #     ),
+        # )
 
     def dump(self):
         cfg = {}
@@ -312,7 +367,7 @@ class ArrSyncEngine:
 
         cfg["downloadClient"] = self.dump_contracts("/downloadClient")
         if self.type in ("prowlarr",):
-            cfg["appProfile"] = self.dump_contracts("/appProfile")
+            cfg["appProfile"] = self.dump_resources("/appProfile")
 
             app_profile_map = {v["id"]: v["name"] for v in self.get("/appProfile")}
             cfg["indexer"] = self.dump_contracts(
@@ -321,7 +376,11 @@ class ArrSyncEngine:
                     **v,
                     "appProfileId": app_profile_map[v["appProfileId"]],
                 },
-                scheme_key=["name", "indexerName"],
+                # NOTE: using definitionName to match instead
+                rm_fields=["encoding", "added"],
+                rm_fields_dense=["capabilities"],
+                scheme_key=["definitionName", "definitionName"],
+                scheme_key_save=["name", "indexerName"],
             )
 
             cfg["applications"] = self.dump_contracts("/applications")
@@ -330,11 +389,17 @@ class ArrSyncEngine:
         if self.type in ("sonarr", "radarr", "lidarr"):
             cfg["indexer"] = self.dump_contracts(
                 "/indexer",
-                scheme_key=["name", "indexerName"],
+                # rm_fields=["encoding", "added"],
+                # rm_fields_dense=["capabilities"],
+                # scheme_key=["definitionName", "definitionName"],
+                # scheme_key_save=["name", "indexerName"],
             )
-            cfg["qualityDefinition"] = del_keys(
+            cfg["qualityDefinition"] = map_values(
                 to_dict(self.get("/qualityDefinition"), "title"),
-                ["id"],
+                lambda _, v: del_keys(
+                    v,
+                    ["id", "quality", "weight", "title"],
+                ),
             )
 
         if self.type in ("sonarr", "radarr"):
@@ -352,9 +417,9 @@ class ArrSyncEngine:
                 for v in self.get("/metadataprofile")
             }
 
-            cfg["rootFolder"] = self.dump_resources(
-                "/rootFolder",
-                lambda k, v: {
+            cfg["rootFolder"] = map_values(
+                to_dict(self.get("/rootFolder"), "name"),
+                lambda k, v: del_keys({
                     **v,
                     "defaultTags": [self.tag_id_map[i] for i in v.get("tags", [])],
                     "defaultQualityProfileId": quality_profile_map[
@@ -363,7 +428,7 @@ class ArrSyncEngine:
                     "defaultMetadataProfileId": metadata_profile_map[
                         v["defaultMetadataProfileId"]
                     ],
-                },
+                }, ["id", "accessible", "freeSpace", "totalSpace"]),
             )
 
         tags = []
@@ -374,8 +439,10 @@ class ArrSyncEngine:
             "indexerProxy",
             "indexer",
         ]:
-            tags += self.cfg.get(k, {}).get("tags", [])
-        self.cfg["tags"] = [t for t in self.tag_id_map.values() if t not in tags]
+            for x in cfg.get(k, {}).values():
+                tags += x.get("tags", [])
+        # pp(tags)
+        cfg["tags"] = [t for t in self.tag_id_map.values() if t not in tags]
 
         return cfg
 
@@ -413,6 +480,7 @@ class ArrSyncEngine:
         cfg: None | dict,
         defaults: Callable[[str, dict], dict] = lambda k, v: v,
         allow_error=False,
+        no_schema=False,
         key: str = "name",
     ):
         if cfg is None:
@@ -420,17 +488,27 @@ class ArrSyncEngine:
 
         existing = to_dict(self.get(path), key)
 
-        schema = self.get(path + "/schema")
+        if not no_schema:
+            schema = self.get(path + "/schema")
+            cfg = map_values(
+                cfg,
+                lambda k, v: {
+                    **schema,
+                    **existing,
+                    "name": k,
+                    **v,
+                },
+            )
+        else:
+            cfg = map_values(
+                cfg,
+                lambda k, v: {
+                    **existing,
+                    "name": k,
+                    **v,
+                },
+            )
 
-        cfg = map_values(
-            cfg,
-            lambda k, v: {
-                **schema,
-                **existing,
-                "name": k,
-                **v,
-            },
-        )
         cfg = map_values(cfg, defaults)
 
         for name, dat in existing.items():
@@ -668,11 +746,7 @@ class ArrSyncEngine:
             self.sync_contracts("/indexerProxy", self.cfg["indexerProxy"])
 
         if self.type in ("sonarr", "radarr", "lidarr"):
-            self.sync_contracts(
-                "/indexer",
-                self.cfg["indexer"],
-                scheme_key=["name", "indexerName"],
-            )
+            self.sync_contracts("/indexer", self.cfg["indexer"])
 
             qmap = to_dict(self.get("/qualityDefinition"), "title")
 
@@ -767,6 +841,8 @@ class ArrSyncEngine:
                         v["defaultMetadataProfileId"]
                     ],
                 },
+
+                no_schema=True,
                 # key="path",
             )
 

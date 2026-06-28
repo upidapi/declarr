@@ -23,7 +23,6 @@
         requires = ["setuptools>=42","wheel"]
         build-backend = "setuptools.build_meta"
 
-
         [project]
         name = "profilarr"
         version = "${version}"
@@ -38,17 +37,13 @@
       setuptools
     ];
 
-    propagatedBuildInputs = with python3.pkgs;
-      [
-        flask
-        pyyaml
-        requests
-        gitpython
-        regex
-      ]
-      ++ (with pkgs; [
-        pkgs.seerr
-      ]);
+    propagatedBuildInputs = with python3.pkgs; [
+      flask
+      pyyaml
+      requests
+      gitpython
+      regex
+    ];
 
     pythonImportsCheck = [
       "profilarr"

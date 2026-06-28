@@ -523,7 +523,9 @@ myArrService:
 
 ## dev stuff
 ```nu
-nix run .#declarr -- --sync ./config.json
+nix run .#declarr -- --sync config.json
+
+nix run .#declarr -- --dump dump.json | save config-dump.json -f
 
 (systemctl cat declarr 
   | grep ExecStart= | split row "=" | get 1 | cat $in 

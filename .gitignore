@@ -1,4 +1,6 @@
 __pycache__/
 .dmypy.json
 config.json
+config-dump.json
+dump.json
 .nvimlog
