@@ -61,20 +61,14 @@ class FormatCompiler:
         )
 
         if time.time() - latest_mod_time > 10 * 60:
-            try:
-                subprocess.run(
-                    ["git", "pull", git_repo, git_branch, "--force"],
-                    check=True,
-                )
-            except subprocess.CalledProcessError:
-                subprocess.run(
-                    ["rm", "-rf", self.data_dir],
-                    check=True,
-                )
-                subprocess.run(
-                    ["git", "clone", git_repo, "-b", git_branch, self.data_dir],
-                    check=True,
-                )
+            subprocess.run(
+                ["rm", "-rf", self.data_dir],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "clone", git_repo, "-b", git_branch, self.data_dir],
+                check=True,
+            )
 
     def compile_formats(self, cfg):
         # use profilarr db as defaults
