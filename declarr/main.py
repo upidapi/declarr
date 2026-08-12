@@ -204,21 +204,17 @@ def main():
 
             if args.sync:
                 ArrSyncEngine(cfg, format_compiler).sync()
-                continue
 
         elif cfg["declarr"]["type"] == "jellyfin":
             if args.sync:
                 JellyfinSyncEngine(cfg).sync()
-                continue
 
         elif cfg["declarr"]["type"] == "jellyseerr":
             if args.sync:
                 sync_jellyseerr(cfg)
-                continue
 
             if should_run:
                 run_jellyseerr(cfg)
-                continue
 
         if should_run:
             log.critical(f"Cant run {cfg['declarr']['type']}")
