@@ -45,7 +45,7 @@ class JellyfinSyncEngine:
         self.r.mount("https://", adapter)
 
         api_key = meta_cfg["apiKey"]
-        self.r.headers.update({"X-Emby-Token": api_key})
+        self.r.headers.update({"Authorization": f'MediaBrowser Token="{api_key}"'})
 
         # self.deferred_deletes = []
 
