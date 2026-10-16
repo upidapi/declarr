@@ -7,6 +7,13 @@
   outputs = {...} @ inputs: let
     forAllSystems = inputs.nixpkgs.lib.genAttrs (import inputs.systems);
   in {
+    overlays = rec {
+      declarr = final: _: {
+        declarr = final.callPackage ./nix/declarr.nix {};
+      };
+      default = declarr;
+    };
+
     nixosModules = rec {
       declarr = import ./nix/modules.nix;
       default = declarr;

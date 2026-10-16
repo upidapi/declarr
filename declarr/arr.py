@@ -669,7 +669,10 @@ class ArrSyncEngine:
             **self.cfg,
         }
 
-        if self.type in ("sonarr", "radarr"):
+        if self.type in ("sonarr", "radarr") and (
+            self.cfg["customFormat"] is not None
+            or self.cfg["qualityProfile"] is not None
+        ):
             self.cfg = self.format_compiler.compile_formats(self.cfg)
 
         self.sync_tags()
@@ -836,6 +839,11 @@ class ArrSyncEngine:
         # TODO: /autoTagging
 
         for k, v in self.cfg["config"].items():
+            # host only carries the apiKey used to authenticate, saving it would
+            # fail validation on instances without a user
+            if k == "host" and v.keys() <= {"apiKey"}:
+                continue
+
             self.put(
                 f"/config/{k}",
                 deep_merge(v, self.get(f"/config/{k}")),

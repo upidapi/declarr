@@ -16,16 +16,17 @@
     options.services.${name}.apiKeyFile = mkOption {
       type = lib.types.str;
     };
-    config.systemd.services.${name}.serviceConfig.ExecStart = mkIf cfg.enable (
-      lib.mkForce
-      (pkgs.writeShellScript
+    config.systemd.services.${name} = mkIf cfg.enable {
+      serviceConfig.ExecStart = lib.mkForce (
+        pkgs.writeShellScript
         "init-${name}" ''
           ${apiKeyEnvVar}=$(cat ${cfg.apiKeyFile}) \
             ${lib.getExe cfg.package} \
             -nobrowser \
             -data="${cfg.dataDir}"
-        '')
-    );
+        ''
+      );
+    };
   };
 in {
   imports = [
