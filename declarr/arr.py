@@ -211,6 +211,7 @@ class ArrSyncEngine:
         self.profile_map = {}
 
         self.deferred_deletes = []
+        self.wanted_tags = None
 
     def _base_req(self, name, f, path: str, body):
         body = {} if body is None else body
@@ -476,15 +477,42 @@ class ArrSyncEngine:
             )
 
         tags = [tag.lower() for tag in unique(tags)]
+        # only when the top-level tags list is declared may extra tags be deleted
+        self.wanted_tags = set(tags) if ("tag" in self.cfg or "tags" in self.cfg) else None
 
         existing = [v["label"] for v in self.get("/tag")]
         for tag in tags:
             if tag not in existing:
                 self.post("/tag", {"label": tag})
 
-            # TODO: delete unused tags
+            # unused tags are removed at the end of sync() (see delete_unused_tags)
 
         self.tag_map = {v["label"]: v["id"] for v in self.get("/tag")}
+
+    def delete_unused_tags(self):
+        """Delete tags that are neither declared nor used by any resource."""
+        if self.wanted_tags is None:
+            return
+
+        used = {
+            t["id"]: any(isinstance(v, list) and v for k, v in t.items() if k.endswith("Ids"))
+            for t in self.get("/tag/detail")
+        }
+        failed = []
+        for t in self.get("/tag"):
+            if t["label"] in self.wanted_tags:
+                continue
+            if used.get(t["id"], False):
+                log.warning(f"tag {t['label']!r} is not declared but still used, kept")
+                continue
+            try:
+                self.delete(f"/tag/{t['id']}")
+            except Exception as e:
+                log.error(f"DELETE /tag/{t['id']} FAILED: {e}")
+                failed.append(t["label"])
+
+        if failed:
+            raise Exception(f"could not delete tags: {failed}")
 
     def sync_resources(
         self,
@@ -847,3 +875,5 @@ class ArrSyncEngine:
                 self.delete(path, body)
             except Exception:
                 pass
+
+        self.delete_unused_tags()
