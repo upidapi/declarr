@@ -31,6 +31,9 @@ from declarr.utils import (
 
 log = logging.getLogger(__name__)
 
+# *arr API: save without testing the connection (a remote outage must not block config sync)
+FORCE_QS = "?forceSave=true"
+
 
 class FormatCompiler:
     def __init__(self, cfg):
@@ -211,6 +214,7 @@ class ArrSyncEngine:
         self.profile_map = {}
 
         self.deferred_deletes = []
+        self.force_save = bool(meta_cfg.get("forceSave", False))
 
     def _base_req(self, name, f, path: str, body):
         body = {} if body is None else body
@@ -238,8 +242,8 @@ class ArrSyncEngine:
     def get(self, path: str, body=None):
         return self._base_req("get ", self.r.get, path, body)
 
-    def post(self, path: str, body=None):
-        return self._base_req("post", self.r.post, path, body)
+    def post(self, path: str, body=None, force=False):
+        return self._base_req("post", self.r.post, path + FORCE_QS * force, body)
 
     def delete(self, path: str, body=None):
         return self._base_req("del ", self.r.delete, path, body)
@@ -247,8 +251,8 @@ class ArrSyncEngine:
     def deferr_delete(self, path: str, body=None):
         self.deferred_deletes.append([path, body])
 
-    def put(self, path: str, body=None):
-        return self._base_req("put ", self.r.put, path, body)
+    def put(self, path: str, body=None, force=False):
+        return self._base_req("put ", self.r.put, path + FORCE_QS * force, body)
 
     # def parse_schema(self, path: str):
     #     schemas = to_dict(self.get(path + "/schema"), "implementationName")
@@ -634,10 +638,10 @@ class ArrSyncEngine:
 
         for name, data in cfg.items():
             if name in existing.keys():
-                self.put(f"{path}/{existing[name]['id']}", data)
+                self.put(f"{path}/{existing[name]['id']}", data, force=self.force_save)
             # elif not only_update:
             else:
-                self.post(path, data)
+                self.post(path, data, force=self.force_save)
             # else:
             #     raise Exception(f"Cant create more instances of the {path} resource")
 
