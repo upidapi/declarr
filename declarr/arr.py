@@ -655,7 +655,7 @@ class ArrSyncEngine:
             "applications": None,
             #
             "indexer": None,
-            "indexerProxie": None,
+            "indexerProxy": None,
             #
             "qualityDefinition": {},
             #
