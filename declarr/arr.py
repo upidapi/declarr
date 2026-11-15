@@ -841,8 +841,13 @@ class ArrSyncEngine:
                 deep_merge(v, self.get(f"/config/{k}")),
             )
 
+        failed = []
         for path, body in self.deferred_deletes:
             try:
                 self.delete(path, body)
-            except Exception:
-                pass
+            except Exception as e:
+                log.error(f"DELETE {path} FAILED: {e}")
+                failed.append(path)
+
+        if failed:
+            raise Exception(f"{len(failed)} deletes failed: {failed}")
