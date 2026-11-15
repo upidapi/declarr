@@ -178,8 +178,70 @@ class FormatCompiler:
         return cfg
 
 
+SECRET_HINTS = ("password", "apikey", "token", "secret", "cookie", "passkey", "username")
+MASK = "********"
+
+
+def _norm_fields(v):
+    # [{"name": n, "value": x, ...}] -> {n: x}
+    if (
+        isinstance(v, list)
+        and v
+        and all(isinstance(i, dict) and "name" in i for i in v)
+    ):
+        return {i["name"]: i.get("value") for i in v}
+    return v
+
+
+def _eq(a, b):
+    if isinstance(a, bool) or isinstance(b, bool):
+        return type(a) is type(b) and a == b
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return a == b
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(_eq(a[k], b[k]) for k in a)
+    if isinstance(a, list) and isinstance(b, list):
+        if a and all(isinstance(x, (int, str)) for x in a + b):
+            return sorted(map(str, a)) == sorted(map(str, b))  # tags etc
+        return len(a) == len(b) and all(_eq(x, y) for x, y in zip(a, b))
+    return a == b
+
+
+def _show(key, v):
+    if any(h in key.lower() for h in SECRET_HINTS):
+        return "<redacted>"
+    s = json.dumps(v)
+    return s if len(s) < 120 else s[:117] + "..."
+
+
+def diff_resource(cur: dict, new: dict, prefix=""):
+    """Human readable differences cur -> new. Never prints secret values."""
+    out = []
+    for k, nv in new.items():
+        if k not in cur:
+            if not prefix:
+                continue  # not stored by the API (enable, indexerName ...): PUT ignores it
+            if nv not in (None, [], {}, "", False, 0):
+                out.append(f"+ {prefix}{k} = {_show(k, nv)}")
+            continue
+        cv = cur[k]
+        if k == "fields":
+            cv, nv = _norm_fields(cv), _norm_fields(nv)
+        if isinstance(cv, dict) and isinstance(nv, dict):
+            out += diff_resource(cv, nv, prefix + k + ".")
+            continue
+        if _eq(cv, nv):
+            continue
+        if cv == MASK:
+            # can't verify a censored secret, a real value would be pushed
+            out.append(f"? {prefix}{k}: censored in arr, unverifiable (would be set from config)")
+            continue
+        out.append(f"~ {prefix}{k}: {_show(k, cv)} -> {_show(k, nv)}")
+    return out
+
+
 class ArrSyncEngine:
-    def __init__(self, cfg, format_data_source):
+    def __init__(self, cfg, format_data_source, dry_run=False):
         self.format_compiler = format_data_source
 
         meta_cfg = cfg["declarr"]
@@ -212,6 +274,11 @@ class ArrSyncEngine:
 
         self.deferred_deletes = []
 
+        self.dry_run = dry_run
+        self.changes = []
+        self.notes = []
+        self.fake_tags = {}
+
     def _base_req(self, name, f, path: str, body):
         body = {} if body is None else body
 
@@ -239,15 +306,42 @@ class ArrSyncEngine:
         return self._base_req("get ", self.r.get, path, body)
 
     def post(self, path: str, body=None):
+        if self.dry_run:
+            name = (body or {}).get("name") or (body or {}).get("label") or (body or {}).get("path")
+            self.changes.append(f"CREATE {path} {name!r}")
+            if path == "/tag":
+                self.fake_tags[(body or {})["label"]] = -1 - len(self.fake_tags)
+            return {"id": -1}
         return self._base_req("post", self.r.post, path, body)
 
     def delete(self, path: str, body=None):
+        if self.dry_run:
+            try:
+                cur = self.get(path)
+                name = cur.get("name") or cur.get("label") or cur.get("path")
+            except Exception:
+                name = "?"
+            self.changes.append(f"DELETE {path} {name!r}")
+            return {}
         return self._base_req("del ", self.r.delete, path, body)
 
     def deferr_delete(self, path: str, body=None):
         self.deferred_deletes.append([path, body])
 
     def put(self, path: str, body=None):
+        if self.dry_run:
+            cur = self.get(path)
+            diff = diff_resource(cur, body or {})
+            if diff:
+                name = cur.get("name") or path
+                real = [d for d in diff if not d.startswith("?")]
+                self.notes.extend(f"{path} {name!r}: {d}" for d in diff if d.startswith("?"))
+                diff = real
+            if diff:
+                name = cur.get("name") or path
+                self.changes.append(f"UPDATE {path} {name!r}:")
+                self.changes.extend(f"    {d}" for d in diff)
+            return body
         return self._base_req("put ", self.r.put, path, body)
 
     # def parse_schema(self, path: str):
@@ -484,6 +578,7 @@ class ArrSyncEngine:
             # TODO: delete unused tags
 
         self.tag_map = {v["label"]: v["id"] for v in self.get("/tag")}
+        self.tag_map.update(self.fake_tags)  # dry run only
 
     def sync_resources(
         self,
