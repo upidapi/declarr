@@ -224,7 +224,8 @@ class ArrSyncEngine:
         log.debug(f"=> {prettify(res.text)}")
 
         if res.status_code < 300:
-            return res.json()
+            # e.g. DELETE /tag answers 200 with an empty body
+            return res.json() if res.text.strip() else {}
 
         # res.raise_for_status()
 
