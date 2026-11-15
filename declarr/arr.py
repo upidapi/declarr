@@ -505,7 +505,7 @@ class ArrSyncEngine:
                 cfg,
                 lambda k, v: {
                     **schema,
-                    **existing,
+                    **existing.get(k, {}),
                     "name": k,
                     **v,
                 },
