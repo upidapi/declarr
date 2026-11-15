@@ -114,7 +114,7 @@ def resolve_env_vars(cfg):
             return val
 
         try:
-            return read_file(val)
+            return read_file(val).strip()
         except Exception:
             log.critical(f'Could not read file "{val}" from env var "{cfg}"')
             exit(1)
