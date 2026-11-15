@@ -458,7 +458,7 @@ class ArrSyncEngine:
         return cfg
 
     def sync_tags(self):
-        tags = self.cfg.get("tag", [])
+        tags = list(self.cfg.get("tag") or self.cfg.get("tags") or [])
 
         for k in ["indexer", "indexerProxy", "downloadClient", "applications"]:
             if k not in self.cfg:
